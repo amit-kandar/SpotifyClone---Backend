@@ -1,9 +1,9 @@
-import express from "express";
+import express, { Application } from "express";
 import cors from "cors";
 import { DATA_LIMIT } from "./constants";
 import cookieParser from "cookie-parser";
 
-const app = express();
+const app: Application = express();
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
