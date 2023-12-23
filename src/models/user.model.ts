@@ -32,7 +32,7 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
     },
     avatar: {
         type: String, // cloudinary url
-        default: ""
+        required: true
     },
     password: {
         type: String,
