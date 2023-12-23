@@ -9,8 +9,8 @@ class APIError extends Error {
     constructor(
         statusCode: number,
         message: string = "Something went wrong",
-        errors: Array<string>,
-        stack?: string
+        errors: Array<string> = [],
+        stack: string = ""
     ) {
         super(message)
         this.message = message
