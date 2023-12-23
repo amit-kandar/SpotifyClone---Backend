@@ -3,7 +3,7 @@ import { Document, Schema, model, Model } from 'mongoose';
 interface ArtistDocument extends Document {
     name: string;
     genre: string;
-    image: string;
+    avatar: string;
 }
 
 const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
@@ -19,7 +19,7 @@ const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
         trim: true,
         index: true
     },
-    image: {
+    avatar: {
         type: String, //cloudinary url
         default: ""
     },
