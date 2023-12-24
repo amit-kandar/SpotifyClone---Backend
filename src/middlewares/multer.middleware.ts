@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 
 const storage = multer.diskStorage({
     destination: function (req: Request, file: Express.Multer.File, cb) {
-        cb(null, '../public/temp');
+        cb(null, './public/temp');
     },
     filename: function (req: Request, file: Express.Multer.File, cb) {
         // Access user-provided name from the request body or query params
