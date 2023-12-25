@@ -1,13 +1,6 @@
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import fs from 'fs';
 
-// Define the configuration parameters
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
-    api_key: process.env.CLOUDINARY_API_KEY || '',
-    api_secret: process.env.CLOUDINARY_API_SECRET || ''
-});
-
 const MAX_UPLOAD_TRIES = 2;
 
 export const uploadToCloudinary = async (filePath: string): Promise<UploadApiResponse | string> => {
@@ -24,9 +17,10 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
 
             // File uploaded successfully
             console.log("File uploaded successfully ", response);
-            return response;
+            return response.url;
         } catch (error) {
             tries++;
+            console.log("Cloudinary Error: ", error);
 
             if (tries === MAX_UPLOAD_TRIES) {
                 if (fs.existsSync(filePath)) {
