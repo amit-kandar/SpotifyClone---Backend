@@ -10,6 +10,9 @@ interface UserDocument extends Document {
     date_of_birth: Date;
     listen_history: Array<Schema.Types.ObjectId>,
     refreshToken: string;
+    isCorrectPassword(password: string): Promise<boolean>;
+    generateAccessToken: Promise<string>;
+    generateRefreshToken: Promise<string>;
 }
 
 const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
