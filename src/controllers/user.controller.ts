@@ -9,7 +9,7 @@ import { APIResponse } from "../utils/APIResponse";
 
 export const signup = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // Get user details
-    const { name, email, password, date_of_birth } = req.body;
+    const { name, email, password, date_of_birth } = req.body; // Date should be YYYY-MM-DD format
 
     // Check for empty fields
     if (!name || !email || !password || !date_of_birth) throw new APIError(400, "All fields are required!");
@@ -22,20 +22,20 @@ export const signup = asyncHandler(async (req: Request, res: Response): Promise<
     if (existedUser) throw new APIError(409, "Email already exists!");
 
     // Check for image
-    let avatarLocalPath: string | undefined = req.file?.path;
-    console.log(avatarLocalPath);
+    let avatarLocalPath: string | undefined;
 
-
-    if (!avatarLocalPath) {
+    if (!req.file?.path) {
         avatarLocalPath = await createImageWithInitials(name);
+    } else {
+        avatarLocalPath = req.file.path;
     }
 
     // Upload the image to the cloudinary
-    const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
-    if (!avatar || (typeof avatar === "string")) throw new APIError(400, "Avatar upload failed");
+    const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
 
-    const avatarURL: string | undefined = avatar.url;
-    if (!avatarURL) throw new APIError(400, "Avatar URL is missing!");
+    if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
+        throw new APIError(400, "Avatar upload failed");
+    }
 
     // Create a user object and save it to datebase
     const user = await User.create({
