@@ -7,7 +7,7 @@ export async function createImageWithInitials(name: string): Promise<string> {
 
     const canvasWidth = 500;
     const canvasHeight = 500;
-    const fontSize = 400;
+    const fontSize = 350;
 
     // Define an array of background colors
     const backgroundColors = ['#43A5BE', '#53BDA5', '#253342', '#5C62D6', '#F07857', '#4FB06D'];
@@ -35,7 +35,6 @@ export async function createImageWithInitials(name: string): Promise<string> {
     // Handle null result with optional chaining and nullish coalescing
     const initials = initialsArray?.join('').toUpperCase() || '';
 
-
     // Center the initials on the canvas
     const textX = canvasWidth / 2;
     const textY = canvasHeight / 2;
@@ -47,14 +46,16 @@ export async function createImageWithInitials(name: string): Promise<string> {
     // Construct the filename with the username and the unique number
     const fileName = `${name.replace(/\s+/g, '_')}_${uniqueNumber}.png`; // Replace spaces with underscores in the username
 
-    // Define the file path for the public/temp directory
-    const filePath = path.join(__dirname, 'public', 'temp', fileName);
+    // Define the file path for the public/temp directory (from project root)
+    const projectRoot = path.resolve(__dirname, '../..'); // Assuming the script is in src/utils directory
+    const filePath = path.join(projectRoot, 'public', 'temp', fileName);
 
     // Create a writable stream to save the image
     const out = fs.createWriteStream(filePath);
     const stream = canvas.createPNGStream();
     stream.pipe(out);
 
-    // Return the file path of the created image
-    return filePath;
+    // Return the file path of the created image (relative to project root)
+    const relativeFilePath = path.join('public', 'temp', fileName);
+    return relativeFilePath;
 }
