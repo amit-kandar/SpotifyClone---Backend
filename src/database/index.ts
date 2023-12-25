@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { DB_NAME } from "../constants";
 
 export async function connectToDB(): Promise<void> {
     try {
