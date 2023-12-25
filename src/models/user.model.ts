@@ -13,11 +13,6 @@ interface UserDocument extends Document {
 }
 
 const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
-    id: {
-        type: String,
-        required: true,
-        unique: true,
-    },
     name: {
         type: String,
         required: true,
