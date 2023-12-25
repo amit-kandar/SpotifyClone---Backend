@@ -2,7 +2,7 @@ import { Document, Schema, model, Model } from 'mongoose';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-interface UserDocument extends Document {
+export interface UserDocument extends Document {
     name: string;
     email: string;
     avatar: string;
@@ -11,8 +11,8 @@ interface UserDocument extends Document {
     listen_history: Array<Schema.Types.ObjectId>,
     refreshToken: string;
     isCorrectPassword(password: string): Promise<boolean>;
-    generateAccessToken: Promise<string>;
-    generateRefreshToken: Promise<string>;
+    generateAccessToken(): Promise<string>;
+    generateRefreshToken(): Promise<string>;
 }
 
 const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
