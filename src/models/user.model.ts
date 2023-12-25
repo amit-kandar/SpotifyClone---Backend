@@ -9,7 +9,7 @@ interface UserDocument extends Document {
     password: string;
     date_of_birth: Date;
     listen_history: Array<Schema.Types.ObjectId>,
-    refresh_token: string;
+    refreshToken: string;
 }
 
 const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
@@ -43,7 +43,7 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
             ref: "Track",
         }
     ],
-    refresh_token: {
+    refreshToken: {
         type: String,
     }
 }, { timestamps: true });
