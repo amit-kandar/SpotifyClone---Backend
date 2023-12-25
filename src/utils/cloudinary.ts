@@ -16,6 +16,9 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
             });
 
             // File uploaded successfully
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath); // Delete the temporary file after successful file upload or after maximum tries
+            }
             return response.url;
         } catch (error) {
             tries++;
@@ -26,10 +29,6 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
                     fs.unlinkSync(filePath); // Remove the local saved temp file if it exists after maximum tries
                 }
                 return "Cloudinary file upload operation failed after multiple attempts!";
-            }
-        } finally {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath); // Delete the temporary file after successful file upload or after maximum tries
             }
         }
     }
