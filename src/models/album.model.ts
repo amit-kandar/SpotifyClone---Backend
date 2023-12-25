@@ -28,4 +28,4 @@ const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
     }
 }, { timestamps: true });
 
-export const AlbumModel = model<albumDocument>('Album', AlbumSchema);
+export const Album = model<albumDocument>('Album', AlbumSchema);

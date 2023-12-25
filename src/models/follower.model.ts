@@ -16,4 +16,4 @@ const FollowerSchema = new Schema<followerDocument, Model<followerDocument>>({
     }
 }, { timestamps: true });
 
-export const FollowerModel = model<followerDocument>("Follower", FollowerSchema);
+export const Follower = model<followerDocument>("Follower", FollowerSchema);

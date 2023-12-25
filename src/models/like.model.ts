@@ -27,4 +27,4 @@ const LikeSchema = new Schema<likeDocument, Model<likeDocument>>({
     }
 }, { timestamps: true });
 
-export const LikeModel = model<likeDocument>("Like", LikeSchema);
+export const Like = model<likeDocument>("Like", LikeSchema);

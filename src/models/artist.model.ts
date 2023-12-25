@@ -25,4 +25,4 @@ const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
     },
 }, { timestamps: true });
 
-export const ArtistModel = model<ArtistDocument>('Artist', ArtistSchema);
+export const Artist = model<ArtistDocument>('Artist', ArtistSchema);

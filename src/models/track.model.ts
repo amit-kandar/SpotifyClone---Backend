@@ -30,6 +30,4 @@ const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
     }
 }, { timestamps: true });
 
-const TrackModel = model<trackDocument>('Track', TrackSchema);
-
-export default TrackModel;
+export const TrackModel = model<trackDocument>('Track', TrackSchema);

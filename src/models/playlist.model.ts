@@ -33,4 +33,4 @@ const PlaylistSchema = new Schema<playlistDocument, Model<playlistDocument>>({
 
 }, { timestamps: true })
 
-export const PlaylistModel = model<playlistDocument>("Playlist", PlaylistSchema);
+export const Playlist = model<playlistDocument>("Playlist", PlaylistSchema);
