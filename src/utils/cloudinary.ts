@@ -16,7 +16,6 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
             });
 
             // File uploaded successfully
-            console.log("File uploaded successfully ", response);
             return response.url;
         } catch (error) {
             tries++;
