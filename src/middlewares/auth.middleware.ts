@@ -14,7 +14,7 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
 
         // fetch token secret
         const secret: string | undefined = process.env.ACCESS_TOKEN_SECRET;
-        if (!secret) throw new APIError(404, "secrete not found");
+        if (!secret) throw new APIError(404, "secret not found");
 
         // validate access token and store decoded token
         const decoded: JwtPayload | string = jwt.verify(token, secret);
