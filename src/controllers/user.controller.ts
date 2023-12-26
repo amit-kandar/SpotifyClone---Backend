@@ -8,6 +8,8 @@ import { createImageWithInitials } from "../utils/createImage";
 import { APIResponse } from "../utils/APIResponse";
 import jwt from "jsonwebtoken";
 import { generateUniqueUsernameFromName } from "../utils/generateUsername";
+import validator from 'validator';
+import { v2 as cloudinary } from "cloudinary";
 
 const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
@@ -22,6 +24,28 @@ const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ acc
     } catch (error) {
         throw new APIError(500, "Something went wrong while generating accessToken and refreshToken");
     }
+}
+
+function isValidDateFormat(dateString: string): boolean {
+    // Regular expression to match 'YYYY-MM-DD' format
+    const dateFormatRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (!dateFormatRegex.test(dateString)) {
+        return false; // Return false if the format doesn't match 'YYYY-MM-DD'
+    }
+
+    // Check if the date is valid (e.g., February 30 would be invalid)
+    const date = new Date(dateString);
+    const isValidDate = !isNaN(date.getTime()); // If getTime() returns NaN, it's an invalid date
+
+    return isValidDate;
+}
+
+// Function to extract public ID from Cloudinary URL
+function extractPublicId(url: string): string | null {
+    const splitUrl = url.split('/');
+    const publicIdComponents = splitUrl[splitUrl.length - 1].split('.');
+    return publicIdComponents[0];
 }
 
 // @route   POST /api/v1/users/check-email
@@ -59,7 +83,10 @@ export const signup = asyncHandler(async (req: Request, res: Response): Promise<
     if (!name || !email || !password || !date_of_birth) throw new APIError(400, "All fields are required!");
 
     // Check email validation
-    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+    if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+
+    // Check date of birth validation
+    if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
 
     // Check if user already exists
     const existedUser = await User.findOne({ email: email });
@@ -113,7 +140,7 @@ export const signin = asyncHandler(async (req: Request, res: Response): Promise<
 
 
     // Check email validation
-    if (email && !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+    if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
 
     //Retrive the user using email
     const user = await User.findOne({ $or: [{ username }, { email }] });
@@ -191,7 +218,7 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
         if (!user) throw new APIError(400, "User Not found");
 
         // compare stored refresh token with incoming refresh token
-        if (user.refreshToken !== incomingRefreshToken) throw new APIError(401, "Invalid request, please login again.");
+        if (user.refreshToken !== incomingRefreshToken) throw new APIError(401, "Invalid request, please signin again.");
 
         // generate refresh token and access token and set refreshToken into database
         const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
@@ -235,25 +262,87 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
     const userId = req.user?._id;
 
     try {
-        const user = await User.findById(userId).select("-password -refreshToken");
-
-        if (!user) throw new APIError(404, "User not found");
+        if (!userId) throw new APIError(401, "Invalid request, signin again");
 
         const { name, email, date_of_birth } = req.body;
 
-        if (name) user.name = name;
-        if (email) user.email = email;
-        if (date_of_birth) user.date_of_birth = date_of_birth;
+        if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
 
-        await user.save({ validateBeforeSave: false });
+        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid email");
+
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: userId },
+            { $set: { name, email, date_of_birth } },
+            { new: true, select: '-password -refreshToken' }
+        );
+
+        if (!updatedUser) {
+            throw new APIError(404, 'Updated user details not found');
+        }
 
         res
             .status(200)
             .json(new APIResponse(
                 200,
+                { user: updatedUser },
                 "User updated successfully"
             ));
     } catch (error) {
         throw new APIError(500, "Internal server error");
+    }
+})
+
+// @route   PUT /api/v1/users/change-avatar
+// @desc    Update user details
+// @access  Private
+export const changeAvatar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // fetch userId from req.user
+    const userId = req.user?.id;
+    try {
+        const user = await User.findById(userId).select("-password -refreshToken");
+        if (!user) throw new APIError(401, "Invalid request, signin again");
+
+        // get avatar localpath
+        if (!req.file?.path) throw new APIError(400, "Image not found");
+
+        const avatarLocalPath: string | undefined = req.file.path;
+
+        // Upload the image to the cloudinary
+        const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+
+        if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
+            throw new APIError(400, "Avatar upload failed");
+        }
+
+        // previous avatar url
+        let oldAvatarUrl = user?.avatar;
+
+        // set the cloudinary public url to database
+        user.avatar = avatarURL;
+
+        // Delete the previous avatar from Cloudinary if it exists
+        if (oldAvatarUrl) {
+            const publicId = extractPublicId(oldAvatarUrl); // Function to extract public ID from Cloudinary URL
+            if (publicId) {
+                await cloudinary.uploader.destroy(publicId); // Delete the image from Cloudinary
+            }
+        }
+
+        // save the user
+        await user.save({ validateBeforeSave: false });
+
+        // fetch the updated user
+        const updatedUser = await User.findById(user._id).select("-password -refershToken");
+
+
+        res
+            .status(200)
+            .json(new APIResponse(
+                200,
+                { user: updatedUser },
+                "Avatar updated successfully!"
+            ));
+    } catch (error) {
+        throw new APIError(500, "Internal server error!")
     }
 })
