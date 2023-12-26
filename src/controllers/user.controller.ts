@@ -232,5 +232,28 @@ export const getUserDetails = asyncHandler(async (req: Request, res: Response): 
 // @desc    Update user details
 // @access  Private
 export const updateUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?._id;
 
+    try {
+        const user = await User.findById(userId).select("-password -refreshToken");
+
+        if (!user) throw new APIError(404, "User not found");
+
+        const { name, email, date_of_birth } = req.body;
+
+        if (name) user.name = name;
+        if (email) user.email = email;
+        if (date_of_birth) user.date_of_birth = date_of_birth;
+
+        await user.save({ validateBeforeSave: false });
+
+        res
+            .status(200)
+            .json(new APIResponse(
+                200,
+                "User updated successfully"
+            ));
+    } catch (error) {
+        throw new APIError(500, "Internal server error");
+    }
 })

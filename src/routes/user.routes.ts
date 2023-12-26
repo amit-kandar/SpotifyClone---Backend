@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { checkEmail, getAccessTokenByRefreshToken, signin, signout, signup } from "../controllers/user.controller";
+import { checkEmail, getAccessTokenByRefreshToken, getUserDetails, signin, signout, signup, updateUserDetails } from "../controllers/user.controller";
 import { upload } from "../middlewares/multer.middleware";
 import { checkAuth } from "../middlewares/auth.middleware";
 
@@ -12,5 +12,7 @@ router.route("/check-email").post(checkEmail);
 // Secured Routes
 router.route("/signout").get(checkAuth, signout);
 router.route("/refresh-token").post(getAccessTokenByRefreshToken)
+router.route("/user").get(checkAuth, getUserDetails);
+router.route("/user").put(checkAuth, updateUserDetails);
 
 export default router;
