@@ -26,7 +26,7 @@ const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ acc
     }
 }
 
-function isValidDateFormat(dateString: string): boolean {
+const isValidDateFormat = (dateString: string): boolean => {
     // Regular expression to match 'YYYY-MM-DD' format
     const dateFormatRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,7 +42,7 @@ function isValidDateFormat(dateString: string): boolean {
 }
 
 // Function to extract public ID from Cloudinary URL
-function extractPublicId(url: string): string | null {
+const extractPublicId = (url: string): string | null => {
     const splitUrl = url.split('/');
     const publicIdComponents = splitUrl[splitUrl.length - 1].split('.');
     return publicIdComponents[0];
@@ -293,7 +293,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
 })
 
 // @route   PUT /api/v1/users/change-avatar
-// @desc    Update user details
+// @desc    Change Avatar
 // @access  Private
 export const changeAvatar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // fetch userId from req.user
@@ -344,5 +344,72 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response): Pr
             ));
     } catch (error) {
         throw new APIError(500, "Internal server error!")
+    }
+})
+
+// @route   PUT /api/v1/users/change-password
+// @desc    Change password
+// @access  Private
+export const changePassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // get userId from req.user
+    const userId = req.user?._id;
+
+    try {
+        // retrive user by userId
+        const user = await User.findById(userId).select("-refreshToken")
+        // Check if user not found
+        if (!user) throw new APIError(401, "Invalid request, signin again");
+
+        // get old password and new password from req.body
+        const { oldPassword, newPassword } = req.body;
+
+        // verify old password
+        const isCorrect = user.isCorrectPassword(oldPassword);
+
+        // check if passwords are not same
+        if (!isCorrect) throw new APIError(400, "Old Password is incorrect!");
+
+        // hash new password and save it in the database
+        user.password = newPassword;
+        user.save({ validateBeforeSave: false });
+
+        res
+            .status(200)
+            .json(new APIResponse(
+                200,
+                null,
+                "Password changed successfully!"
+            ));
+    } catch (error) {
+        throw new APIError(500, "Internal server error");
+    }
+})
+
+// @route   POST /api/v1/users/reset-password
+// @desc    reset password
+// @access  Private
+export const resetPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // get userId from req.user
+    const userId = req.user;
+
+    try {
+        // retrive user from database
+        const user = await User.findById(userId).select("-password -refreshToken");
+
+        // check user exists or not
+        if (!user) throw new APIError(401, "Invalid request, signin again");
+
+        // get new password from req.body
+        const { password } = req.body;
+
+        // save it to database
+        user.password = password;
+
+        await user.save({ validateBeforeSave: false });
+        res
+            .status(200)
+            .json(new APIResponse(200, null, "Successfully password reset"));
+    } catch (error) {
+        throw new APIError(500, "Internal server error")
     }
 })
