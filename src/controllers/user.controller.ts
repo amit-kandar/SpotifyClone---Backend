@@ -6,6 +6,7 @@ import { uploadToCloudinary } from "../utils/cloudinary";
 import { UploadApiResponse } from "cloudinary";
 import { createImageWithInitials } from "../utils/createImage";
 import { APIResponse } from "../utils/APIResponse";
+import jwt from "jsonwebtoken";
 
 const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
@@ -22,6 +23,33 @@ const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ acc
     }
 }
 
+// @route   POST api/v1/users/check-email
+// @desc    Check if email exists
+// @access  Public
+export const checkEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // get email from body
+    const { email } = req.body;
+
+    // Check email validation
+    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+
+    // check email exists in the database
+    let user = await User.findOne({ email });
+
+    // send response to user with email_exists
+    res
+        .status(200)
+        .json(new APIResponse(
+            200,
+            {
+                email_exists: Boolean(user)
+            }
+        ))
+})
+
+// @route   POST api/v1/users/signup
+// @desc    User signup
+// @access  Public
 export const signup = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // Get user details
     const { name, email, password, date_of_birth } = req.body; // Date should be YYYY-MM-DD format
@@ -69,6 +97,9 @@ export const signup = asyncHandler(async (req: Request, res: Response): Promise<
     return;
 })
 
+// @route   POST api/v1/users/signin
+// @desc    User signin
+// @access  Public
 export const signin = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // Get user credentials
     const { email, password } = req.body;
@@ -112,6 +143,9 @@ export const signin = asyncHandler(async (req: Request, res: Response): Promise<
         ));
 })
 
+// @route   POST api/v1/users/signout
+// @desc    User signout
+// @access  Private
 export const signout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     await User.findByIdAndUpdate(
         req.user?._id,
@@ -128,23 +162,50 @@ export const signout = asyncHandler(async (req: Request, res: Response): Promise
         .end();
 })
 
-export const checkEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // get email from body
-    const { email } = req.body;
+// @route   POST api/auth/token
+// @desc    Get Access Token by Refresh Token
+// @access  Private
+export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // Get refresh token
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-    // Check email validation
-    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+    // check empty field
+    if (!incomingRefreshToken) throw new APIError(403, "Unauthorized Request");
 
-    // check email exists in the database
-    let user = await User.findOne({ email });
+    // fetch token secret
+    const refreshSecret: string | undefined = process.env.REFRESH_TOKEN_SECRET;
+    if (!refreshSecret) throw new APIError(404, "secret not found");
 
-    // send response to user with email_exists
-    res
-        .status(200)
-        .json(new APIResponse(
-            200,
-            {
-                email_exists: Boolean(user)
-            }
-        ))
+    try {
+        // validate refresh token
+        const decoded = jwt.verify(incomingRefreshToken, refreshSecret);
+        if (typeof decoded === "string") throw new APIError(400, "Invalid decoded information");
+
+        // retrive user from database
+        const user = await User.findById(decoded._id).select("-password");
+        if (!user) throw new APIError(400, "User Not found");
+
+        // compare stored refresh token with incoming refresh token
+        if (user.refreshToken !== incomingRefreshToken) throw new APIError(401, "Invalid request, please login again.");
+
+        // generate refresh token and access token and set refreshToken into database
+        const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
+
+        // set the refreshToken and accessToken to cookies and send back user
+        res
+            .status(200)
+            .cookie("accessToken", accessToken, { httpOnly: true, secure: true })
+            .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true })
+            .json(new APIResponse(
+                200,
+                {
+                    accessToken,
+                    refreshToken
+                },
+                "Access token refreshed successfully"
+            ));
+    } catch (error) {
+        throw new APIError(500, "Error while refreshing access token")
+    }
+
 })
