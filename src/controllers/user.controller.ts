@@ -127,3 +127,24 @@ export const signout = asyncHandler(async (req: Request, res: Response): Promise
         .json(new APIResponse(200, {}, "User sign out"))
         .end();
 })
+
+export const checkEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // get email from body
+    const { email } = req.body;
+
+    // Check email validation
+    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+
+    // check email exists in the database
+    let user = await User.findOne({ email });
+
+    // send response to user with email_exists
+    res
+        .status(200)
+        .json(new APIResponse(
+            200,
+            {
+                email_exists: Boolean(user)
+            }
+        ))
+})
