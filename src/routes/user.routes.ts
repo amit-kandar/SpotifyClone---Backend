@@ -9,6 +9,6 @@ router.route("/signup").post(upload.single("avatar"), signup);
 router.route("/signin").post(signin);
 
 // Secured Routes
-router.route("/logout").get(checkAuth, signout);
+router.route("/signout").get(checkAuth, signout);
 
 export default router;

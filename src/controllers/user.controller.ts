@@ -113,7 +113,6 @@ export const signin = asyncHandler(async (req: Request, res: Response): Promise<
 })
 
 export const signout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    if (!req.user) throw new APIError(400, "Invalid access token")
     await User.findByIdAndUpdate(
         req.user?._id,
         {

@@ -7,7 +7,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 export const checkAuth = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
         // get access token
-        const { token } = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
 
         // if token not found send unauthorized user
         if (!token) throw new APIError(401, "Unauthorized Request");
