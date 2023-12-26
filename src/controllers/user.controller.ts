@@ -7,6 +7,7 @@ import { UploadApiResponse } from "cloudinary";
 import { createImageWithInitials } from "../utils/createImage";
 import { APIResponse } from "../utils/APIResponse";
 import jwt from "jsonwebtoken";
+import { generateUniqueUsernameFromName } from "../utils/generateUsername";
 
 const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
@@ -23,7 +24,7 @@ const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ acc
     }
 }
 
-// @route   POST api/v1/users/check-email
+// @route   POST /api/v1/users/check-email
 // @desc    Check if email exists
 // @access  Public
 export const checkEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -47,7 +48,7 @@ export const checkEmail = asyncHandler(async (req: Request, res: Response): Prom
         ))
 })
 
-// @route   POST api/v1/users/signup
+// @route   POST /api/v1/users/signup
 // @desc    User signup
 // @access  Public
 export const signup = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -80,9 +81,12 @@ export const signup = asyncHandler(async (req: Request, res: Response): Promise<
         throw new APIError(400, "Avatar upload failed");
     }
 
+    const username = generateUniqueUsernameFromName(name);
+
     // Create a user object and save it to datebase
     const user = await User.create({
         name,
+        username,
         email,
         password,
         date_of_birth,
@@ -97,21 +101,22 @@ export const signup = asyncHandler(async (req: Request, res: Response): Promise<
     return;
 })
 
-// @route   POST api/v1/users/signin
+// @route   POST /api/v1/users/signin
 // @desc    User signin
 // @access  Public
 export const signin = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // Get user credentials
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
 
     // Check for empty fields
-    if (!email || !password) throw new APIError(400, "All fields are required!");
+    if ((!email && !username) || !password) throw new APIError(400, (!email && !username) ? "Email or username is required!" : "Password is required!");
+
 
     // Check email validation
-    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+    if (email && !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
 
     //Retrive the user using email
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ $or: [{ username }, { email }] });
 
     // Is user exists
     if (!user) throw new APIError(404, "User does not exists");
@@ -143,7 +148,7 @@ export const signin = asyncHandler(async (req: Request, res: Response): Promise<
         ));
 })
 
-// @route   POST api/v1/users/signout
+// @route   POST /api/v1/users/signout
 // @desc    User signout
 // @access  Private
 export const signout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -162,7 +167,7 @@ export const signout = asyncHandler(async (req: Request, res: Response): Promise
         .end();
 })
 
-// @route   POST api/auth/token
+// @route   POST /api/v1/users/refresh-token
 // @desc    Get Access Token by Refresh Token
 // @access  Private
 export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -207,5 +212,25 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
     } catch (error) {
         throw new APIError(500, "Error while refreshing access token")
     }
+
+})
+
+// @route   GET /api/v1/users/user
+// @desc    Get user details
+// @access  Private
+export const getUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res
+        .status(200)
+        .json(new APIResponse(
+            200,
+            { user: req.user as UserDocument },
+            "fetched user successfully"
+        ))
+})
+
+// @route   PUT /api/v1/users/user
+// @desc    Update user details
+// @access  Private
+export const updateUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
 
 })
