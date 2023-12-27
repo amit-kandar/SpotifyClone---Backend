@@ -51,153 +51,169 @@ const extractPublicId = (url: string): string | null => {
 // @route   POST /api/v1/users/check-email
 // @desc    Check if email exists
 // @access  Public
-export const checkEmail = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // get email from body
-    const { email } = req.body;
+export const checkEmail = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // get email from body
+        const { email } = req.body;
 
-    // Check email validation
-    if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+        // Check email validation
+        if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
 
-    // check email exists in the database
-    let user = await User.findOne({ email });
+        // check email exists in the database
+        let user = await User.findOne({ email });
 
-    // send response to user with email_exists
-    res
-        .status(200)
-        .json(new APIResponse(
-            200,
-            {
-                email_exists: Boolean(user)
-            }
-        ))
+        // send response to user with email_exists
+        res
+            .status(200)
+            .json(new APIResponse(
+                200,
+                {
+                    email_exists: Boolean(user)
+                }
+            ))
+    } catch (error) {
+        next(error);
+    }
 })
 
 // @route   POST /api/v1/users/signup
 // @desc    User signup
 // @access  Public
-export const signup = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // Get user details
-    const { name, email, password, date_of_birth } = req.body; // Date should be YYYY-MM-DD format
+export const signup = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Get user details
+        const { name, email, password, date_of_birth } = req.body; // Date should be YYYY-MM-DD format
 
-    // Check for empty fields
-    if (!name || !email || !password || !date_of_birth) throw new APIError(400, "All fields are required!");
+        // Check for empty fields
+        if (!name || !email || !password || !date_of_birth) throw new APIError(400, "All fields are required!");
 
-    // Check email validation
-    if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+        // Check email validation
+        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
 
-    // Check date of birth validation
-    if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
+        // Check date of birth validation
+        if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
 
-    // Check if user already exists
-    const existedUser = await User.findOne({ email: email });
-    if (existedUser) throw new APIError(409, "Email already exists!");
+        // Check if user already exists
+        const existedUser = await User.findOne({ email: email });
+        if (existedUser) throw new APIError(409, "Email already exists!");
 
-    // Check for image
-    let avatarLocalPath: string | undefined;
+        // Check for image
+        let avatarLocalPath: string | undefined;
 
-    if (!req.file?.path) {
-        avatarLocalPath = await createImageWithInitials(name);
-    } else {
-        avatarLocalPath = req.file.path;
+        if (!req.file?.path) {
+            avatarLocalPath = await createImageWithInitials(name);
+        } else {
+            avatarLocalPath = req.file.path;
+        }
+
+        // Upload the image to the cloudinary
+        const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+
+        if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
+            throw new APIError(400, "Avatar upload failed");
+        }
+
+        const username = generateUniqueUsernameFromName(name);
+
+        // Create a user object and save it to datebase
+        const user = await User.create({
+            name,
+            username,
+            email,
+            password,
+            date_of_birth,
+            avatar: avatarURL!,
+        })
+
+        // Check for user creation operation is successfull or not and remove password and refresh_token
+        const created_user = await User.findById(user._id).select("-password -refresh_token")
+
+        // return response to user
+        res.status(201).json(new APIResponse(200, created_user, "User created successfully"));
+    } catch (error) {
+        next(error);
     }
-
-    // Upload the image to the cloudinary
-    const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
-
-    if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
-        throw new APIError(400, "Avatar upload failed");
-    }
-
-    const username = generateUniqueUsernameFromName(name);
-
-    // Create a user object and save it to datebase
-    const user = await User.create({
-        name,
-        username,
-        email,
-        password,
-        date_of_birth,
-        avatar: avatarURL!,
-    })
-
-    // Check for user creation operation is successfull or not and remove password and refresh_token
-    const created_user = await User.findById(user._id).select("-password -refresh_token")
-
-    // return response to user
-    res.status(201).json(new APIResponse(200, created_user, "User created successfully"));
-    return;
 })
 
 // @route   POST /api/v1/users/signin
 // @desc    User signin
 // @access  Public
-export const signin = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // Get user credentials
-    const { email, username, password } = req.body;
+export const signin = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Get user credentials
+        const { email, username, password } = req.body;
 
-    // Check for empty fields
-    if ((!email && !username) || !password) throw new APIError(400, (!email && !username) ? "Email or username is required!" : "Password is required!");
+        // Check for empty fields
+        if ((!email && !username) || !password) throw new APIError(400, (!email && !username) ? "Email or username is required!" : "Password is required!");
 
 
-    // Check email validation
-    if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+        // Check email validation
+        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
 
-    //Retrive the user using email
-    const user = await User.findOne({ $or: [{ username }, { email }] });
+        //Retrive the user using email
+        const user = await User.findOne({ $or: [{ username }, { email }] });
 
-    // Is user exists
-    if (!user) throw new APIError(404, "User does not exists");
+        // Is user exists
+        if (!user) throw new APIError(404, "User does not exists");
 
-    // Compare input password and existing user password
-    const isValidPassword: boolean = await user.isCorrectPassword(password);
+        // Compare input password and existing user password
+        const isValidPassword: boolean = await user.isCorrectPassword(password);
 
-    if (!isValidPassword) throw new APIError(401, "Invalid user credentials!");
+        if (!isValidPassword) throw new APIError(401, "Invalid user credentials!");
 
-    // generate refresh token and access token and set refreshToken into database
-    const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
+        // generate refresh token and access token and set refreshToken into database
+        const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
 
-    // retrive the user from database again because refresh token has set
-    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+        // retrive the user from database again because refresh token has set
+        const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
-    // set the refreshToken and accessToken to cookies and send back user
-    res
-        .status(200)
-        .cookie("accessToken", accessToken, { httpOnly: true, secure: true })
-        .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true })
-        .json(new APIResponse(
-            200,
-            {
-                user: loggedInUser,
-                accessToken,
-                refreshToken
-            },
-            "Logged in Successfully"
-        ));
+        // set the refreshToken and accessToken to cookies and send back user
+        res
+            .status(200)
+            .cookie("accessToken", accessToken, { httpOnly: true, secure: true })
+            .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true })
+            .json(new APIResponse(
+                200,
+                {
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken
+                },
+                "Logged in Successfully"
+            ));
+    } catch (error) {
+        next(error);
+    }
 })
 
 // @route   POST /api/v1/users/signout
 // @desc    User signout
 // @access  Private
-export const signout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                refreshToken: ""
-            }
-        });
-    res
-        .status(200)
-        .clearCookie("accessToken", { httpOnly: true, secure: true })
-        .clearCookie("refreshToken", { httpOnly: true, secure: true })
-        .json(new APIResponse(200, {}, "User sign out"))
-        .end();
+export const signout = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        if (!req.user) throw new APIError(401, "Invalid request, signin again");
+        await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: {
+                    refreshToken: ""
+                }
+            });
+        res
+            .status(200)
+            .clearCookie("accessToken", { httpOnly: true, secure: true })
+            .clearCookie("refreshToken", { httpOnly: true, secure: true })
+            .json(new APIResponse(200, {}, "User sign out"))
+            .end();
+    } catch (error) {
+        next(error);
+    }
 })
 
 // @route   POST /api/v1/users/refresh-token
 // @desc    Get Access Token by Refresh Token
 // @access  Private
-export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Get refresh token
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
@@ -237,7 +253,7 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
                 "Access token refreshed successfully"
             ));
     } catch (error) {
-        throw new APIError(500, "Error while refreshing access token")
+        next(error);
     }
 
 })
@@ -245,14 +261,19 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
 // @route   GET /api/v1/users/user
 // @desc    Get user details
 // @access  Private
-export const getUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    res
-        .status(200)
-        .json(new APIResponse(
-            200,
-            { user: req.user as UserDocument },
-            "fetched user successfully"
-        ))
+export const getUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        if (!req.user) throw new APIError(401, "Invalid request, signin again");
+        res
+            .status(200)
+            .json(new APIResponse(
+                200,
+                { user: req.user as UserDocument },
+                "fetched user successfully"
+            ));
+    } catch (error) {
+        next(error);
+    }
 })
 
 // @route   PUT /api/v1/users/user
@@ -312,7 +333,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
 // @route   PUT /api/v1/users/change-avatar
 // @desc    Change Avatar
 // @access  Private
-export const changeAvatar = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const changeAvatar = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // fetch userId from req.user
     const userId = req.user?.id;
     try {
@@ -360,14 +381,14 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response): Pr
                 "Avatar updated successfully!"
             ));
     } catch (error) {
-        throw new APIError(500, "Internal server error!")
+        next(error);
     }
 })
 
 // @route   PUT /api/v1/users/change-password
 // @desc    Change password
 // @access  Private
-export const changePassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const changePassword = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId = req.user?._id;
 
@@ -398,14 +419,14 @@ export const changePassword = asyncHandler(async (req: Request, res: Response): 
                 "Password changed successfully!"
             ));
     } catch (error) {
-        throw new APIError(500, "Internal server error");
+        next(error);
     }
 })
 
 // @route   POST /api/v1/users/reset-password
 // @desc    reset password
 // @access  Private
-export const resetPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const resetPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId = req.user;
 
@@ -427,6 +448,6 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response): P
             .status(200)
             .json(new APIResponse(200, null, "Successfully password reset"));
     } catch (error) {
-        throw new APIError(500, "Internal server error")
+        next(error);
     }
 })
