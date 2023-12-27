@@ -259,36 +259,59 @@ export const getUserDetails = asyncHandler(async (req: Request, res: Response): 
 // @desc    Update user details
 // @access  Private
 export const updateUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // get userId from req.user
     const userId = req.user?._id;
 
     try {
+        // check for valid request
         if (!userId) throw new APIError(401, "Invalid request, signin again");
 
+        // Get data from req.body
         const { name, email, date_of_birth } = req.body;
 
+        // Check for empty fields
+        if (name === "" && email === "" && date_of_birth === "") {
+            throw new APIError(400, "At least one field is required");
+        }
+
+
+        // validate date of birth
         if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
 
+        // validate email
         if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid email");
 
-        const updatedUser = await User.findOneAndUpdate(
+        // check for field value already exists
+        if (req.user?.name === name || req.user?.email === email || req.user?.date_of_birth === date_of_birth) throw new APIError(400, "Given value already exists!")
+
+        // retrive updated value from database
+        const updatedUserDetails = await User.findOneAndUpdate(
             { _id: userId },
-            { $set: { name, email, date_of_birth } },
-            { new: true, select: '-password -refreshToken' }
+            { $set: { name: name, email: email, date_of_birth: date_of_birth } },
+            { new: true, select: "name email date_of_birth" }
         );
 
-        if (!updatedUser) {
+        // check updatedUserDetails
+        if (!updatedUserDetails) {
             throw new APIError(404, 'Updated user details not found');
         }
 
+        // send response
         res
             .status(200)
             .json(new APIResponse(
                 200,
-                { user: updatedUser },
+                { user: updatedUserDetails },
                 "User updated successfully"
             ));
     } catch (error) {
-        throw new APIError(500, "Internal server error");
+        let errorMessage = "Internal server error";
+
+        if (error instanceof Error && error.message) {
+            errorMessage = error.message; // Retrieve the error message if available
+        }
+
+        throw new APIError(500, errorMessage);
     }
 })
 
