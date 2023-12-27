@@ -270,7 +270,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
         const { name, email, date_of_birth } = req.body;
 
         // Check for empty fields
-        if (name === "" && email === "" && date_of_birth === "") {
+        if (!name && !email && !date_of_birth) {
             throw new APIError(400, "At least one field is required");
         }
 
