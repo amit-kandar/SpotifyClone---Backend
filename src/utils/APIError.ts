@@ -1,39 +1,30 @@
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 class APIError extends Error {
     statusCode: number;
     message: string;
     errors: Array<string>;
-    stack?: string;
     data: any;
-    success: boolean;
 
     constructor(
         statusCode: number,
         message: string = "Something went wrong",
         errors: Array<string> = [],
-        stack: string = ""
+        data: any = null
     ) {
         super(message);
+        this.statusCode = statusCode;
         this.message = message;
         this.errors = errors;
-        this.statusCode = statusCode;
-        this.data = null;
-        this.success = false;
-
-        if (stack) {
-            this.stack = stack;
-        } else {
-            Error.captureStackTrace(this, this.constructor);
-        }
+        this.data = data;
 
         // File deletion logic within the constructor
         /**
          * when we get error and also multer middleware add image in temp folder.
          * That time we should remove the file from temp.
          */
-        const directoryPath = 'public/temp/';
+        const directoryPath = "public/temp/";
 
         fs.readdir(directoryPath, (err: NodeJS.ErrnoException | null, files: string[]) => {
             if (err) {
@@ -42,7 +33,7 @@ class APIError extends Error {
             }
 
             files.forEach((file) => {
-                if (path.extname(file) === '.png') {
+                if (path.extname(file) === ".png") {
                     const filePath = path.join(directoryPath, file);
                     fs.unlink(filePath, (error: NodeJS.ErrnoException | null) => {
                         if (error) {
@@ -53,8 +44,6 @@ class APIError extends Error {
             });
         });
     }
-
-
 }
 
-export { APIError };
+export { APIError }

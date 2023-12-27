@@ -2,6 +2,7 @@ import express, { Application } from "express";
 import cors from "cors";
 import { DATA_LIMIT } from "./constants";
 import cookieParser from "cookie-parser";
+import { errorHandler } from "./middlewares/errorHandler.middleware";
 
 const app: Application = express();
 
@@ -19,6 +20,7 @@ app.use(express.static("public"));
 app.use(cookieParser())
 
 
+
 // Import all routes
 import userRoutes from './routes/user.routes';
 
@@ -27,6 +29,7 @@ import userRoutes from './routes/user.routes';
 app.use('/api/v1/users', userRoutes);
 
 
+app.use(errorHandler);
 
 
 export { app }

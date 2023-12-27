@@ -1,6 +1,6 @@
 import { APIError } from "../utils/APIError";
 import { asyncHandler } from "../utils/asyncHandler";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { User, UserDocument } from "../models/user.model";
 import { uploadToCloudinary } from "../utils/cloudinary";
 import { UploadApiResponse } from "cloudinary";
@@ -258,7 +258,7 @@ export const getUserDetails = asyncHandler(async (req: Request, res: Response): 
 // @route   PUT /api/v1/users/user
 // @desc    Update user details
 // @access  Private
-export const updateUserDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const updateUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId = req.user?._id;
 
@@ -305,13 +305,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
                 "User updated successfully"
             ));
     } catch (error) {
-        let errorMessage = "Internal server error";
-
-        if (error instanceof Error && error.message) {
-            errorMessage = error.message; // Retrieve the error message if available
-        }
-
-        throw new APIError(500, errorMessage);
+        next(error);
     }
 })
 
