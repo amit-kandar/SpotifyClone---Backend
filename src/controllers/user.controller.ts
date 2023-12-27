@@ -332,14 +332,14 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response): Pr
         await user.save({ validateBeforeSave: false });
 
         // fetch the updated user
-        const updatedUser = await User.findById(user._id).select("-password -refershToken");
+        const updatedAvatar = await User.findById(user._id).select("avatar");
 
 
         res
             .status(200)
             .json(new APIResponse(
                 200,
-                { user: updatedUser },
+                { user: updatedAvatar },
                 "Avatar updated successfully!"
             ));
     } catch (error) {
