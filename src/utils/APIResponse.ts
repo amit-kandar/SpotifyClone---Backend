@@ -3,6 +3,7 @@ class APIResponse {
     data: any
     message: string
     success: boolean
+    timestamp: Date;
     constructor(
         statusCode: number,
         data: any,
@@ -12,6 +13,7 @@ class APIResponse {
         this.data = data
         this.message = message
         this.success = statusCode < 400
+        this.timestamp = new Date()
     }
 }
 
