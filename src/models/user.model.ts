@@ -9,7 +9,6 @@ export interface UserDocument extends Document {
     avatar: string;
     password: string;
     date_of_birth: Date;
-    listen_history: Array<Schema.Types.ObjectId>,
     refreshToken: string;
     isCorrectPassword(password: string): Promise<boolean>;
     generateAccessToken(): Promise<string>;
@@ -47,12 +46,6 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
         type: Date,
         required: true,
     },
-    listen_history: [
-        {
-            type: Schema.Types.ObjectId,
-            ref: "Track",
-        }
-    ],
     refreshToken: {
         type: String,
     }
