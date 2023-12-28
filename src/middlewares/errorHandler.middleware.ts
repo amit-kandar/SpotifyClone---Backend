@@ -22,6 +22,7 @@ export const errorHandler = (
     // Log the error here
 
     res.status(statusCode).json({
+        statusCode,
         success: false,
         message,
         errors,
