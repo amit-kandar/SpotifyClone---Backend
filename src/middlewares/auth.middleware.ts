@@ -28,6 +28,6 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
         // call next()
         next();
     } catch (error) {
-        throw new APIError(500, "Invalid access token")
+        next(error);
     }
 })
