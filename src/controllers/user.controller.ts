@@ -115,6 +115,8 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
 
         const username = generateUniqueUsernameFromName(name);
 
+        // generate refresh token and access token and set refreshToken into database
+
         // Create a user object and save it to datebase
         const user = await User.create({
             name,
@@ -125,11 +127,31 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             avatar: avatarURL!,
         })
 
-        // Check for user creation operation is successfull or not and remove password and refresh_token
-        const created_user = await User.findById(user._id).select("-password -refresh_token")
+        const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
+
+        // set refresh token to the database
+        const updatedUserDetails = await User.findOneAndUpdate(
+            { _id: user._id },
+            { $set: { refreshToken: refreshToken } },
+            { new: true, select: "-password -refreshToken" }
+        );
 
         // return response to user
-        res.status(201).json(new APIResponse(200, created_user, "User created successfully"));
+        res
+            .status(201)
+            .cookie("accessToken", accessToken, { secure: true, httpOnly: true })
+            .cookie("refreshToken", refreshToken, { secure: true, httpOnly: true })
+            .json(
+                new APIResponse(
+                    200,
+                    {
+                        user: updatedUserDetails,
+                        accessToken,
+                        refreshToken
+                    },
+                    "User created successfully"
+                )
+            );
     } catch (error) {
         next(error);
     }
