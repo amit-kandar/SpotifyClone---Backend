@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 export interface UserDocument extends Document {
     name: string;
     username: string;
+    userType?: string;
     email: string;
     avatar: string;
     password: string;
@@ -26,6 +27,11 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
         required: true,
         trim: true,
         index: true
+    },
+    userType: {
+        type: String,
+        enum: ['regular', 'artist', 'admin'], // Example user types
+        default: 'regular'
     },
     email: {
         type: String,
