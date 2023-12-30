@@ -23,11 +23,12 @@ app.use(cookieParser())
 
 // Import all routes
 import userRoutes from './routes/user.routes';
+import artistRoutes from './routes/artist.routes';
 
 
 // Declare routes
 app.use('/api/v1/users', userRoutes);
-
+app.use('/api/v1/artists', artistRoutes);
 
 app.use(errorHandler);
 
