@@ -17,6 +17,8 @@ export const errorHandler = (
         message = err.message;
         errors = err.errors;
         data = err.data;
+    } else {
+        errors = [err.message];
     }
 
     // Log the error here
