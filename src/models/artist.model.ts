@@ -1,17 +1,16 @@
 import { Document, Schema, model, Model } from 'mongoose';
 
 interface ArtistDocument extends Document {
-    name: string;
+    user: Schema.Types.ObjectId;
     genre: string;
-    avatar: string;
+    bio: string;
 }
 
 const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
-    name: {
-        type: String,
-        required: true,
-        trim: true,
-        index: true,
+    user: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        index: true
     },
     genre: {
         type: String,
@@ -19,10 +18,11 @@ const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
         trim: true,
         index: true
     },
-    avatar: {
-        type: String, //cloudinary url
-        default: ""
-    },
+    bio: {
+        type: String,
+        required: true,
+        trim: true
+    }
 }, { timestamps: true });
 
 export const Artist = model<ArtistDocument>('Artist', ArtistSchema);
