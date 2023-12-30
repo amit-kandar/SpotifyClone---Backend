@@ -3,11 +3,7 @@ import {
     changeAvatar,
     changePassword,
     checkEmail,
-    followArtist,
-    followingArtist,
     getAccessTokenByRefreshToken,
-    getArtistById,
-    getArtists,
     getUserDetails,
     resetPassword,
     signin,
@@ -33,9 +29,5 @@ router.route("/user").put(checkAuth, updateUserDetails);
 router.route("/change-avatar").put(checkAuth, upload.single("avatar"), changeAvatar);
 router.route("/change-password").put(checkAuth, changePassword);
 router.route("/reset-password").post(checkAuth, resetPassword);
-router.route("/artist").get(checkAuth, getArtistById); // get specific artist
-router.route("/artists").get(checkAuth, getArtists); // get all artist
-router.route("/:id/follow").post(checkAuth, followArtist);
-router.route("/artist/following").get(checkAuth, followingArtist);
 
 export default router;
