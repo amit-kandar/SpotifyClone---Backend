@@ -362,9 +362,6 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
             }
         ]);
 
-        // console.log(allFollowingArtists);
-
-
         // validate response
         if (!allFollowingArtists) throw new APIError(400, "Error while fetching following artists!");
 
