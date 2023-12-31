@@ -44,13 +44,6 @@ const isValidDateFormat = (dateString: string): boolean => {
     return isValidDate;
 }
 
-// Function to extract public ID from Cloudinary URL
-const extractPublicId = (url: string): string | null => {
-    const splitUrl = url.split('/');
-    const publicIdComponents = splitUrl[splitUrl.length - 1].split('.');
-    return publicIdComponents[0];
-}
-
 // @route   POST /api/v1/users/check-email
 // @desc    Check if email exists
 // @access  Public
@@ -110,15 +103,20 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
         }
 
         // Upload the image to the cloudinary
-        const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
 
-        if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
-            throw new APIError(400, "Avatar upload failed");
+        let avatarURL: string;
+        let public_id: string;
+
+        if (typeof avatar === 'object' && avatar.hasOwnProperty('url')) {
+            avatarURL = (avatar as UploadApiResponse).url;
+            public_id = (avatar as UploadApiResponse).public_id;
+        } else {
+            throw new APIError(400, "Invalid avatar data");
         }
 
+        // generate username
         const username = generateUniqueUsernameFromName(name);
-
-        // generate refresh token and access token and set refreshToken into database
 
         // Create a user object and save it to datebase
         const user = await User.create({
@@ -128,8 +126,10 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             password,
             date_of_birth,
             avatar: avatarURL!,
+            public_id
         })
 
+        // generate refresh token and access token and set refreshToken into database
         const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
 
         // set refresh token to the database
@@ -371,10 +371,16 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
         const avatarLocalPath: string | undefined = req.file.path;
 
         // Upload the image to the cloudinary
-        const avatarURL: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
 
-        if (typeof avatarURL !== 'string' || avatarURL.trim() === '') {
-            throw new APIError(400, "Avatar upload failed");
+        let avatarURL: string;
+        let public_id: string;
+
+        if (typeof avatar === 'object' && avatar.hasOwnProperty('url')) {
+            avatarURL = (avatar as UploadApiResponse).url;
+            public_id = (avatar as UploadApiResponse).public_id;
+        } else {
+            throw new APIError(400, "Invalid avatar data");
         }
 
         // previous avatar url
@@ -382,14 +388,14 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
 
         // set the cloudinary public url to database
         user.avatar = avatarURL;
+        user.public_id = public_id;
 
         // Delete the previous avatar from Cloudinary if it exists
-        if (oldAvatarUrl) {
-            const publicId = extractPublicId(oldAvatarUrl); // Function to extract public ID from Cloudinary URL
-            if (publicId) {
-                await cloudinary.uploader.destroy(publicId); // Delete the image from Cloudinary
-            }
-        }
+        const Old_public_id: string | undefined = req.user?.public_id;
+        if (!Old_public_id) throw new APIError(400, "Public id not found");
+
+        if (!oldAvatarUrl) throw new APIError(400, "Previous avatar not found");
+        await cloudinary.uploader.destroy(Old_public_id);
 
         // save the user
         await user.save({ validateBeforeSave: false });
