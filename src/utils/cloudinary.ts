@@ -19,7 +19,8 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath); // Delete the temporary file after successful file upload or after maximum tries
             }
-            return response.url;
+
+            return response;
         } catch (error) {
             tries++;
             console.log("Cloudinary Error: ", error);
