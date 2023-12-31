@@ -11,6 +11,7 @@ export interface UserDocument extends Document {
     password: string;
     date_of_birth: Date;
     refreshToken: string;
+    public_id: string;
     isCorrectPassword(password: string): Promise<boolean>;
     generateAccessToken(): Promise<string>;
     generateRefreshToken(): Promise<string>;
@@ -54,6 +55,10 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
     },
     refreshToken: {
         type: String,
+    },
+    public_id: {
+        type: String,
+        required: true
     }
 }, { timestamps: true });
 
