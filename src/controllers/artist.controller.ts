@@ -190,7 +190,7 @@ export const getArtistById = asyncHandler(async (req: Request, res: Response, ne
 });
 
 // @route   GET /api/v1/artists/
-// @desc    Add song
+// @desc    Fetch All artists
 // @access  Private
 export const getALlArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get user id from req.user.id
@@ -240,7 +240,7 @@ export const getALlArtists = asyncHandler(async (req: Request, res: Response, ne
 });
 
 // @route   POST /api/v1/artists/:id/follow
-// @desc    Add song
+// @desc    Follow specific artist by :id
 // @access  Private
 // may be need some changing on where artist id should provide(like, path variable, query, or body)
 export const followArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -374,7 +374,7 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
             .json(new APIResponse(
                 200,
                 { Following: allFollowingArtists },
-                "Successfully fetched all artists whom you follow"
+                "Successfully fetched all followed artists"
             ))
     } catch (error) {
         console.log(error);
