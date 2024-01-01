@@ -1,30 +1,26 @@
-import { Schema, Document, model, Model } from "mongoose";
+import mongoose, { Schema, Document, model, Model, Types } from "mongoose";
+import { APIError } from "../utils/APIError";
 
-interface likeDocument extends Document {
-    user: Schema.Types.ObjectId;
-    target_type?: string;
-    target_id?: string;
-    likedAt: Date;
+interface Like extends Document {
+    user: Types.ObjectId;
+    target_type: string;
+    target_id: Types.ObjectId;
 }
 
-const LikeSchema = new Schema<likeDocument, Model<likeDocument>>({
+const LikeSchema = new Schema<Like>({
     user: {
         type: Schema.Types.ObjectId,
         required: true,
     },
     target_type: {
         type: String,
-        enum: ['Track', 'Playlist', 'Artist'],
+        enum: ['Track', 'Playlist', 'Album'],
         required: true,
     },
     target_id: {
         type: Schema.Types.ObjectId,
         required: true,
-    },
-    likedAt: {
-        type: Date,
-        default: Date.now(),
     }
 }, { timestamps: true });
 
-export const Like = model<likeDocument>("Like", LikeSchema);
+export const Like = model<Like>("Like", LikeSchema);
