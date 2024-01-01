@@ -2,9 +2,20 @@ import { Schema, Document, model, Model } from "mongoose";
 
 interface trackDocument extends Document {
     title: string;
-    cover_image: string;
-    album?: Array<Schema.Types.ObjectId>;
+    cover_image: {
+        url: string,
+        public_id: string
+    };
     duration: number;
+    track: {
+        url: string,
+        public_id: string
+    };
+    artist: Schema.Types.ObjectId;
+    genre: string;
+    lyrics: string;
+    releaseDate: Date;
+    totalLikes: number;
 }
 
 const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
@@ -15,19 +26,45 @@ const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
         index: true
     },
     cover_image: {
-        type: String, //cloudinary url
+        type: {
+            url: { type: String, required: true }, // Cloudinary URL
+            public_id: { type: String, required: true } // Cloudinary public_id
+        },
         required: true,
     },
-    album: [
-        {
-            type: Schema.Types.ObjectId,
-            ref: "Album"
-        }
-    ],
     duration: {
         type: Number,
         required: true
+    },
+    track: {
+        type: {
+            url: { type: String, required: true }, // Cloudinary URL
+            public_id: { type: String, required: true } // Cloudinary public_id
+        },
+        required: true
+    },
+    artist: {
+        type: Schema.Types.ObjectId,
+        ref: 'Artist',
+    },
+    genre: {
+        type: String,
+        required: true,
+        trim: true,
+        index: true
+    },
+    releaseDate: {
+        type: Date,
+        default: () => new Date()
+    },
+    lyrics: {
+        type: String,
+        default: ""
+    },
+    totalLikes: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
-export const TrackModel = model<trackDocument>('Track', TrackSchema);
+export const Track = model<trackDocument>('Track', TrackSchema);

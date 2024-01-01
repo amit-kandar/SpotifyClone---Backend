@@ -212,11 +212,9 @@ export const getALlArtists = asyncHandler(async (req: Request, res: Response, ne
             },
             {
                 $project: {
-                    _id: 0,
                     createdAt: 0,
                     updatedAt: 0,
                     __v: 0,
-                    "details._id": 0,
                     "details.createdAt": 0,
                     "details.updatedAt": 0,
                     "details.__v": 0,
