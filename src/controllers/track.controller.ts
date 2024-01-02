@@ -12,7 +12,7 @@ import { Like } from "../models/like.model";
 
 // @route   POST /api/v1/tracks/add-track
 // @desc    Add Track
-// @access  Private
+// @access  [Artist, Admin]
 export const addTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId: mongoose.Types.ObjectId = req.user?.id;
@@ -162,7 +162,7 @@ export const getTrack = asyncHandler(async (req: Request, res: Response, next: N
 
 // @route   PUT /api/v1/tracks/:id
 // @desc    Update track
-// @access  Private
+// @access  [Admin, Artist]
 export const updateTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user.id
     const userId: mongoose.Types.ObjectId = req.user?.id;
@@ -207,7 +207,7 @@ export const updateTrack = asyncHandler(async (req: Request, res: Response, next
 
 // @route   DELETE /api/v1/tracks/:id/remove
 // @desc    Remove track
-// @access  Private
+// @access  [Admin, Artist]
 export const removeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId: mongoose.Types.ObjectId = req.user?.id;
@@ -248,7 +248,7 @@ export const removeTrack = asyncHandler(async (req: Request, res: Response, next
 
 // @route   POST /api/v1/tracks/:id/like
 // @desc    Remove track
-// @access  Private
+// @access  [Admin, Artist]
 export const likeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
     const userId: mongoose.Types.ObjectId = req.user?.id;
