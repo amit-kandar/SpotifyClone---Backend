@@ -6,6 +6,7 @@ import { APIResponse } from "../utils/APIResponse";
 import { User } from "../models/user.model";
 import mongoose, { Schema } from "mongoose";
 import { Follower } from "../models/follower.model";
+import { Like } from "../models/like.model";
 
 const genres = [
     "rock",
@@ -192,7 +193,7 @@ export const getArtistById = asyncHandler(async (req: Request, res: Response, ne
 // @route   GET /api/v1/artists/
 // @desc    Fetch All artists
 // @access  Private
-export const getALlArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getAllArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get user id from req.user.id
     const userId = req.user?.id;
     try {
@@ -374,6 +375,64 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
     } catch (error) {
         console.log(error);
 
+        next(error);
+    }
+});
+
+// @route   POST /api/v1/artists/:id/like
+// @desc    Like artist
+// @access  [Admin, Artist, Regular]
+export const likeArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // get userId from req.user
+    const userId: mongoose.Types.ObjectId = req.user?.id;
+
+    try {
+        // validate user id
+        if (!userId) {
+            throw new APIError(401, "Invalid request, sign in again");
+        }
+
+        // get artistId from params
+        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+        // validate artist id
+        if (!artistId) {
+            throw new APIError(400, "Invalid artistId");
+        }
+
+        // retrive like document if exists
+        const like = await Like.findOne({ target_type: "Artist", target_id: artistId, user: userId });
+
+        // retrive artist document by using artistId
+        const artist = await Artist.findById(artistId);
+
+        // validate artist
+        if (!artist || artist.totalLikes === undefined) throw new APIError(400, "Artist should not be null");
+
+        if (like) { // if already like that artist then remove the document and remove 1 like from totalLikes
+            await Like.deleteOne(like._id);
+            artist.totalLikes = artist.totalLikes - 1;
+        } else { // else create a new document and add 1 like into totalLikes
+            await Like.create({
+                user: userId,
+                target_type: "Artist",
+                target_id: artistId,
+            })
+            artist.totalLikes = artist.totalLikes + 1;
+        }
+
+        // save the artist
+        await artist.save({ validateBeforeSave: false });
+
+        // retrive the new artist
+        const updatedArtist = await Artist.findById(artistId);
+
+        // send response back to client
+        res.status(200).json(new APIResponse(
+            200,
+            { totalLikes: updatedArtist?.totalLikes }
+        ));
+    } catch (error) {
         next(error);
     }
 });

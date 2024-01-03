@@ -14,7 +14,7 @@ const LikeSchema = new Schema<Like>({
     },
     target_type: {
         type: String,
-        enum: ['Track', 'Playlist', 'Album'],
+        enum: ['Track', 'Playlist', 'Album', 'Artist'],
         required: true,
     },
     target_id: {
