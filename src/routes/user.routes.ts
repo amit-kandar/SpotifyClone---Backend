@@ -9,25 +9,45 @@ import {
     signin,
     signout,
     signup,
-    updateUserDetails
+    updateUserDetails,
 } from "../controllers/user.controller";
 import { upload } from "../middlewares/multer.middleware";
 import { checkAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// public routes
-router.route("/signup").post(upload.single("avatar"), signup);
-router.route("/signin").post(signin);
-router.route("/check-email").post(checkEmail);
+// Public Routes
+
+// Route for user signup
+router.post("/signup", upload.single("avatar"), signup);
+
+// Route for user signin
+router.post("/signin", signin);
+
+// Route for checking if email exists
+router.post("/check-email", checkEmail);
 
 // Secured Routes
-router.route("/signout").get(checkAuth, signout);
-router.route("/refresh-token").post(getAccessTokenByRefreshToken)
-router.route("/user").get(checkAuth, getUserDetails);
-router.route("/user").put(checkAuth, updateUserDetails);
-router.route("/change-avatar").put(checkAuth, upload.single("avatar"), changeAvatar);
-router.route("/change-password").put(checkAuth, changePassword);
-router.route("/reset-password").post(checkAuth, resetPassword);
+
+// Route for user signout
+router.get("/signout", checkAuth, signout);
+
+// Route for refreshing access token
+router.post("/refresh-token", getAccessTokenByRefreshToken);
+
+// Route for getting user details
+router.get("/user", checkAuth, getUserDetails);
+
+// Route for updating user details
+router.put("/user", checkAuth, updateUserDetails);
+
+// Route for changing user avatar
+router.put("/change-avatar", checkAuth, upload.single("avatar"), changeAvatar);
+
+// Route for changing user password
+router.put("/change-password", checkAuth, changePassword);
+
+// Route for resetting user password
+router.post("/reset-password", checkAuth, resetPassword);
 
 export default router;
