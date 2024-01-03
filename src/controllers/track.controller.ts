@@ -247,7 +247,7 @@ export const removeTrack = asyncHandler(async (req: Request, res: Response, next
 })
 
 // @route   POST /api/v1/tracks/:id/like
-// @desc    Remove track
+// @desc    Like track
 // @access  [Admin, Artist]
 export const likeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
