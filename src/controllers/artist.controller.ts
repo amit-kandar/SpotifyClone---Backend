@@ -436,3 +436,29 @@ export const likeArtist = asyncHandler(async (req: Request, res: Response, next:
         next(error);
     }
 });
+
+// @route   GET /api/v1/artists/:id/followers-list
+// @desc    Get total followers
+// @access  [Admin, Artist]
+export const getTotalFollowers = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Retrieve the artist ID from request parameters
+        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+        // Validate artist ID
+        if (!artistId) {
+            throw new APIError(400, 'Invalid artistId');
+        }
+
+        // Find all followers for the specified artist
+        const followers = await Follower.find({ artist: artistId });
+
+        // Get total number of followers
+        const totalFollowers = followers.length;
+
+        // Send response with the total number of followers
+        res.status(200).json(new APIResponse(200, { totalFollowers: totalFollowers }, "Successfully fetched total followers"))
+    } catch (error) {
+        next(error);
+    }
+});

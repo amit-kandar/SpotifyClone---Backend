@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createArtistProfile, getArtistById, getAllArtists, updateArtistProfile, followArtist, followingArtistByUser, likeArtist } from "../controllers/artist.controller";
+import { createArtistProfile, getArtistById, getAllArtists, updateArtistProfile, followArtist, followingArtistByUser, likeArtist, getTotalFollowers } from "../controllers/artist.controller";
 import { checkRole } from "../middlewares/permission.middleware";
 import { checkAuth } from "../middlewares/auth.middleware";
 
@@ -25,5 +25,8 @@ router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updateArtistProfil
 
 // Get information about a specific artist by ID (This should come after other specific routes)
 router.get("/:id", checkAuth, getArtistById);
+
+// Get total followers using artist id
+router.get("/total-follower/:id", getTotalFollowers);
 
 export default router;
