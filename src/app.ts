@@ -34,7 +34,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/artists', artistRoutes);
 app.use('/api/v1/tracks', trackRoutes);
 app.use('/api/v1/albums', albumRoutes);
-app.use('api/v1/playlists', playlistRoutes);
+app.use('/api/v1/playlists', playlistRoutes);
 
 app.use(errorHandler);
 
