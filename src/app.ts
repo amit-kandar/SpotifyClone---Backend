@@ -25,12 +25,14 @@ app.use(cookieParser())
 import userRoutes from './routes/user.routes';
 import artistRoutes from './routes/artist.routes';
 import trackRoutes from './routes/track.routes';
+import albumRoutes from './routes/album.routes';
 
 
 // Declare routes
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/artists', artistRoutes);
 app.use('/api/v1/tracks', trackRoutes);
+app.use('/api/v1/albums', albumRoutes);
 
 app.use(errorHandler);
 

@@ -2,9 +2,14 @@ import { Document, Schema, model, Model } from "mongoose";
 
 interface albumDocument extends Document {
     name: string;
-    cover_image: string;
+    description: string;
+    cover_image: {
+        url: string,
+        public_id: string
+    };
     artist: Schema.Types.ObjectId;
-    publishAt: Date;
+    tracks: [Schema.Types.ObjectId];
+    totalLikes: number;
 }
 
 const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
@@ -14,17 +19,29 @@ const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
         trim: true,
         index: true,
     },
-    cover_image: {
+    description: {
         type: String,
-        default: "",
+        required: false,
+        default: ""
+    },
+    cover_image: {
+        type: {
+            url: { type: String, required: true },
+            public_id: { type: String, required: true }
+        }
     },
     artist: {
         type: Schema.Types.ObjectId,
-        ref: "Artist"
+        ref: "Artist",
+        index: true
     },
-    publishAt: {
-        type: Date,
-        required: true,
+    tracks: [{
+        type: Schema.Types.ObjectId,
+        ref: "Tracks"
+    }],
+    totalLikes: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
