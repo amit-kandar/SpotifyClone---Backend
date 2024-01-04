@@ -1,3 +1,4 @@
+import redisClient from "../config/redis";
 import { User } from "../models/user.model";
 import { APIError } from "../utils/APIError";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -21,12 +22,22 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
         if (typeof decoded === "string") throw new APIError(400, "Invalid decoded information");
 
         // retrive the user
-        const user = await User.findById(decoded._id).select("-password -refreshToken");
-        if (!user) throw new APIError(404, "Invalid access token");
-        // set user into req.user
-        req.user = user;
+        const userData = await redisClient.get(`user:${decoded._id}`).catch((err) => { throw new APIError(400, "Error while fetching details from redis", [err]) });
+
+        if (!userData) {
+            const user = await User.findById(decoded._id).select("-password -refreshToken");
+            if (!user) throw new APIError(404, "Invalid access token");
+            // set user into req.user
+            req.user = user;
+        } else {
+            const user = JSON.parse(userData);
+            // set user into req.user
+            req.user = user;
+        }
+
         // call next()
         next();
+
     } catch (error) {
         next(error);
     }

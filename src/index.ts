@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { connectToDB } from "./database";
 import { app } from "./app";
 import { v2 as cloudinary } from "cloudinary";
+import redisClient from "./config/redis";
 
 dotenv.config({
     path: "./.env"
@@ -25,5 +26,6 @@ connectToDB()
         app.listen(PORT, () => {
             console.log(`server is running at port ${PORT}`);
         })
+        redisClient.connect()
     })
     .catch(err => console.log("MongoDB connection failed!!", err))

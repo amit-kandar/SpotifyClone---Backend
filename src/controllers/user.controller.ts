@@ -11,8 +11,7 @@ import { generateUniqueUsernameFromName } from "../utils/generateUsername";
 import validator from 'validator';
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
-import { Artist } from "../models/artist.model";
-import { Follower } from "../models/follower.model";
+import redisClient from "../config/redis";
 
 const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
@@ -53,7 +52,7 @@ export const checkEmail = asyncHandler(async (req: Request, res: Response, next:
         const { email } = req.body;
 
         // Check email validation
-        if (!email || !/\S+@\S+\.\S+/.test(email)) throw new APIError(400, "Invalid Email");
+        if (!validator.isEmail(email)) throw new APIError(400, "Invalid Email");
 
         // check email exists in the database
         let user = await User.findOne({ email });
@@ -90,8 +89,8 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
         if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
 
         // Check if user already exists
-        const existedUser = await User.findOne({ email: email });
-        if (existedUser) throw new APIError(409, "Email already exists!");
+        const isExistUser = await User.findOne({ email: email });
+        if (isExistUser) throw new APIError(409, "Email already exists!");
 
         // Check for image
         let avatarLocalPath: string | undefined;
@@ -138,6 +137,9 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             { $set: { refreshToken: refreshToken } },
             { new: true, select: "-password -refreshToken" }
         );
+
+        // store user data in Redis cache
+        redisClient.setEx(`user:${user._id}`, 3600, JSON.stringify(updatedUserDetails));
 
         // return response to user
         res
@@ -191,6 +193,9 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
 
         // retrive the user from database again because refresh token has set
         const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+        // await redisClient.connect()
+        // store user data in Redis cache
+        redisClient.setEx(`user:${user._id}`, 3600, JSON.stringify(loggedInUser));
 
         // set the refreshToken and accessToken to cookies and send back user
         res
@@ -289,13 +294,14 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
 export const getUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         if (!req.user) throw new APIError(401, "Invalid request, signin again");
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                { user: req.user as UserDocument },
-                "fetched user successfully"
-            ));
+
+        const user = req.user as UserDocument;
+
+        res.status(200).json(new APIResponse(
+            200,
+            { user: user }, // Sending user object from the request
+            "Fetched user successfully from database"
+        ));
     } catch (error) {
         next(error);
     }
