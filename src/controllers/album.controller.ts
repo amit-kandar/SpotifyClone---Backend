@@ -85,7 +85,7 @@ export const createAlbum = asyncHandler(async (req: Request, res: Response, next
 // @access [Artist, Admin]
 export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?.id;
+        const userId: mongoose.Types.ObjectId = req.user?.id;
 
         // Validate userId
         if (!userId) {
@@ -93,7 +93,7 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
         }
 
         // Get albumId from request params or body
-        const albumId = req.params.id || req.body.albumId;
+        const albumId: mongoose.Types.ObjectId = req.params.id || req.body.albumId;
 
         // Validate albumId
         if (!albumId) {
@@ -164,7 +164,7 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 // @access [Artist, Admin]
 export const updateAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?.id;
+        const userId: mongoose.Types.ObjectId = req.user?.id;
 
         // Validate userId
         if (!userId) {
@@ -172,7 +172,7 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
         }
 
         // Get albumId from request params
-        const albumId = req.params.id;
+        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
         // Validate albumId
         if (!albumId) {
@@ -186,7 +186,7 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
         if (!artist) {
             throw new APIError(404, "Artist not found");
         }
-        const artistId = artist._id;
+        const artistId: mongoose.Types.ObjectId = artist._id;
 
         // Find the album by albumId
         const album = await Album.findById(albumId);
@@ -231,7 +231,7 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
 export const getAlbumById = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         // Get albumId from request params
-        const albumId = req.params.id;
+        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
         // Validate albumId
         if (!albumId) {
@@ -264,7 +264,7 @@ export const getAlbumById = asyncHandler(async (req: Request, res: Response, nex
 export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         // Get artistId from request params
-        const artistId = req.params.artistId;
+        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.artistId);
 
         // Validate artistId
         if (!artistId) {
@@ -273,11 +273,12 @@ export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next
 
         // Find all albums of the artist
         const albums = await Album.find({ artist: artistId });
+        const total = albums.length;
 
         // Return the albums of the artist
         res.status(200).json(new APIResponse(
             200,
-            albums,
+            { total: total, albums },
             "All albums of the artist retrieved successfully"
         ));
     } catch (error) {
@@ -291,14 +292,14 @@ export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next
 // @access [Artist, Admin]
 export const removeTrackFromAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?.id;
+        const userId: mongoose.Types.ObjectId = req.user?.id;
 
         // Validate userId
         if (!userId) {
             throw new APIError(401, "Invalid request, user not authenticated");
         }
 
-        const albumId = req.params.id; // Fetch albumId from route params
+        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id); // Fetch albumId from route params
         if (!albumId) throw new APIError(400, "Album id is required");
 
         // Get trackId from request body
@@ -348,7 +349,7 @@ export const removeTrackFromAlbum = asyncHandler(async (req: Request, res: Respo
 // @access [Artist, Admin]
 export const removeAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?.id;
+        const userId: mongoose.Types.ObjectId = req.user?.id;
 
         // Validate userId
         if (!userId) {
@@ -356,7 +357,7 @@ export const removeAlbum = asyncHandler(async (req: Request, res: Response, next
         }
 
         // Get albumId from request params
-        const albumId = req.params.id;
+        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
         // Validate albumId
         if (!albumId) {
