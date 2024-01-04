@@ -22,7 +22,7 @@ const genres = [
 // @access  [regular, admin]
 export const createArtistProfile = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get user id from req.user
-    const userId = req.user?._id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // check for valid request
@@ -33,8 +33,11 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
         if (isArtistExists) throw new APIError(400, "User has already a artist profile");
 
         // get genre and bio from req.body
-        const { genre, bio } = req.body;
+        let { genre, bio } = req.body;
         if (!genre || !bio) throw new APIError(400, "All fields are required!");
+
+        genre = genre.toLowerCase();
+        bio = bio.toLowerCase();
 
         // validate genre
         if (!genres.includes(genre)) throw new APIError(400, "Invalid genre");
@@ -67,7 +70,7 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
 // @access  [artist, admin]
 export const updateArtistProfile = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
-    const userId = req.user?._id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     // get artist id from params and convert it into mongoose Object type
     let artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
@@ -86,7 +89,7 @@ export const updateArtistProfile = asyncHandler(async (req: Request, res: Respon
         if (!artist) throw new APIError(404, "No such artist found");
 
         // check userid with artist user
-        if (!artist.user === userId) throw new APIError(403, "You don't have permission to perform this action");
+        if ((artist.user).toString() !== userId.toString()) throw new APIError(403, "You don't have permission to perform this action");
 
         // validate values
         if (!genre && !bio) throw new APIError(400, "Both fields are empty. Please provide at least one field");
@@ -120,15 +123,15 @@ export const updateArtistProfile = asyncHandler(async (req: Request, res: Respon
 
 // @route   GET /api/v1/artsists/:id
 // @desc    Get artist by id
-// @access  Private
+// @access  [artist, admin, regular]
 // have to check when userId and artist model user are not same
 export const getArtistById = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get user id from req.user.id
-    const userId = req.user?.id;
+    // get user id from req.user
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     // get id from params
 
-    const artistId = new mongoose.Types.ObjectId(req.params.id);
+    const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
     try {
         // check for valid request
@@ -192,10 +195,11 @@ export const getArtistById = asyncHandler(async (req: Request, res: Response, ne
 
 // @route   GET /api/v1/artists/
 // @desc    Fetch All artists
-// @access  Private
+// @access  [artist, admin, regular]
 export const getAllArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get user id from req.user.id
-    const userId = req.user?.id;
+    // get user id from req.user._id
+    const userId: mongoose.Types.ObjectId = req.user?._id;
+
     try {
         // check for valid request
         if (!userId) throw new APIError(401, "Invalid request, signin again");
@@ -240,14 +244,14 @@ export const getAllArtists = asyncHandler(async (req: Request, res: Response, ne
 
 // @route   POST /api/v1/artists/:id/follow
 // @desc    Follow specific artist by :id
-// @access  Private
+// @access  [admin, artist, regular]
 // may be need some changing on where artist id should provide(like, path variable, query, or body)
 export const followArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userid from req.user.id
-    const userId = req.user?.id;
+    // get userid from req.user
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     // get artist id from params
-    const artistId = req.params.id;
+    const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
     try {
         // check for valid request
@@ -279,21 +283,23 @@ export const followArtist = asyncHandler(async (req: Request, res: Response, nex
 
 // @route GET /api/v1/artists/following-artists
 // @desc Get all the artist whom a perticuler user following
-// @access private
+// @access [admin, artist, regular]
 export const followingArtistByUser = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-
-    // get userId from req.user.id
-    const userId = new mongoose.Types.ObjectId(req.user?.id);
-
     try {
-        // check for valid request
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        // Get userId from req.user
+        const userId: mongoose.Types.ObjectId = req.user?._id;
 
-        // retrive all artist that the perticular user follow
+        // Check if userId is valid
+        if (!userId) {
+            throw new APIError(401, "Invalid request, sign in again");
+        }
+
+        // Retrieve all artists that the particular user follows
         const allFollowingArtists = await Follower.aggregate([
             {
                 $match: { user: userId }
             },
+            // Aggregation pipeline to retrieve artist details
             {
                 $lookup: {
                     from: "artists",
@@ -306,9 +312,6 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
                         },
                         {
                             $project: {
-                                _id: 0,
-                                createdAt: 0,
-                                updatedAt: 0,
                                 __v: 0
                             }
                         }
@@ -316,6 +319,7 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
                     as: "Artist"
                 }
             },
+            // Aggregation pipeline to retrieve user details
             {
                 $lookup: {
                     from: "users",
@@ -328,18 +332,19 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
                         },
                         {
                             $project: {
-                                _id: 0,
-                                createdAt: 0,
-                                updatedAt: 0,
-                                __v: 0,
                                 password: 0,
-                                refreshToken: 0
+                                refreshToken: 0,
+                                public_id: 0,
+                                email: 0,
+                                __v: 0,
+                                role: 0
                             }
                         }
                     ],
                     as: "Details"
                 }
             },
+            // Unwind the arrays
             {
                 $unwind: {
                     path: "$Artist",
@@ -351,33 +356,29 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
             },
             {
                 $project: {
-                    _id: 0,
-                    user: 0,
-                    artist: 0,
-                    createdAt: 0,
-                    updatedAt: 0,
                     __v: 0
                 }
             }
         ]);
 
-        // validate response
-        if (!allFollowingArtists) throw new APIError(400, "Error while fetching following artists!");
+        // Check if any artists are found
+        if (!allFollowingArtists || allFollowingArtists.length === 0) {
+            throw new APIError(404, "No followed artists found");
+        }
 
-        // send response to user
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                { Following: allFollowingArtists },
-                "Successfully fetched all followed artists"
-            ))
+        const total = allFollowingArtists.length;
+
+        // Send response to user
+        res.status(200).json(new APIResponse(
+            200,
+            { total: total, Following: allFollowingArtists },
+            "Successfully fetched all followed artists"
+        ));
     } catch (error) {
-        console.log(error);
-
         next(error);
     }
 });
+
 
 // @route   POST /api/v1/artists/:id/like
 // @desc    Like artist

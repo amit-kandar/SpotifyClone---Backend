@@ -18,7 +18,7 @@ router.post("/:id/follow", checkAuth, followArtist);
 router.get("/following-artists", checkAuth, followingArtistByUser);
 
 // Like/Unlike an artist by ID
-router.post("/:id/like", checkAuth, checkRole(["admin", "artist"]), likeArtist);
+router.post("/:id/like", checkAuth, checkRole(["admin", "artist", "regular"]), likeArtist);
 
 // Update Artist Profile
 router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updateArtistProfile);
