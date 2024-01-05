@@ -1,4 +1,5 @@
 import * as redis from 'redis';
+import logger from './logger';
 
 const redisURL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -11,11 +12,11 @@ const redisOptions = redisURL.startsWith('redis://')
 const redisClient = redis.createClient(redisOptions);
 
 redisClient.on('connect', () => {
-    console.log('Connected to Redis');
+    logger.info('Connected to Redis');
 });
 
 redisClient.on('error', (err) => {
-    console.error('Redis error:', err);
+    logger.error('Redis error:', err);
 });
 
 export default redisClient;

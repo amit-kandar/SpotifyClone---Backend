@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { connectToDB } from "./database";
 import { app } from "./app";
 import { v2 as cloudinary } from "cloudinary";
+import logger from "./config/logger";
 
 dotenv.config({
     path: "./.env"
@@ -19,11 +20,11 @@ cloudinary.config({
 connectToDB()
     .then(() => {
         app.on("error", err => {
-            console.log("Error: ", err);
+            logger.error("Error: ", err);
         })
 
         app.listen(PORT, () => {
-            console.log(`server is running at port ${PORT}`);
+            logger.info(`server is running at port ${PORT}`);
         })
     })
-    .catch(err => console.log("MongoDB connection failed!!", err))
+    .catch(err => logger.error("MongoDB connection failed!!", err))
