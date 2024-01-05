@@ -1,5 +1,6 @@
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import fs from 'fs';
+import logger from '../config/logger'; // Import your logger instance here
 
 const MAX_UPLOAD_TRIES = 2;
 
@@ -23,12 +24,13 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
             return response;
         } catch (error) {
             tries++;
-            console.log("Cloudinary Error: ", error);
+            logger.error("Cloudinary Error: ", { error }); // Logging the Cloudinary error using your logger
 
             if (tries === MAX_UPLOAD_TRIES) {
                 if (fs.existsSync(filePath) && filePath !== "public/assets/default.jpg") {
                     fs.unlinkSync(filePath); // Remove the local saved file if it exists after maximum tries
                 }
+                logger.error("Cloudinary file upload operation failed after multiple attempts!"); // Logging upload failure after multiple tries
                 return "Cloudinary file upload operation failed after multiple attempts!";
             }
         }

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import logger from "../config/logger"; // Import your logger instance here
 
 class APIError extends Error {
     statusCode: number;
@@ -19,16 +20,11 @@ class APIError extends Error {
         this.errors = errors;
         this.data = data;
 
-        // File deletion logic within the constructor
-        /**
-         * when we get error and also multer middleware add image in temp folder.
-         * That time we should remove the file from temp.
-         */
         const directoryPath = "public/temp/";
 
         fs.readdir(directoryPath, (err: NodeJS.ErrnoException | null, files: string[]) => {
             if (err) {
-                console.error('Error reading directory:', err);
+                logger.error('Error reading directory:', { error: err });
                 return;
             }
 
@@ -37,7 +33,7 @@ class APIError extends Error {
                     const filePath = path.join(directoryPath, file);
                     fs.unlink(filePath, (error: NodeJS.ErrnoException | null) => {
                         if (error) {
-                            console.error(`Error deleting file ${filePath}:`, error);
+                            logger.error(`Error deleting file ${filePath}:`, { error });
                         }
                     });
                 }
@@ -46,4 +42,4 @@ class APIError extends Error {
     }
 }
 
-export { APIError }
+export { APIError };

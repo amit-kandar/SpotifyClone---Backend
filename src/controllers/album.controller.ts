@@ -9,50 +9,56 @@ import { UploadApiResponse } from "cloudinary";
 import { APIResponse } from "../utils/APIResponse";
 import { Like } from "../models/like.model";
 import { Track } from "../models/track.model";
+import logger from '../config/logger';
 
 // @route POST /api/v1/albums/create
 // @desc Create new album
 // @access [Artist, Admin]
-export const createAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createAlbum = asyncHandler(async (req, res, next) => {
     try {
-        // userId form req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        // userId from req.user
+        const userId = req.user?.id;
 
-        // check user exists or not
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        // Log user ID
+        logger.info(`User ID: ${userId}`);
 
-        // get data from req.body
+        // Check if the user exists
+        if (!userId) throw new APIError(401, "Invalid request, sign in again");
+
+        // Get data from req.body
         const { name, description } = req.body;
 
-        // validate data
+        // Validate data
         if (!name || !description)
             throw new APIError(422, "All fields are required!");
 
-        // get artistId from Artist collections
-        const { _id }: mongoose.Types.ObjectId = await Artist.findOne({ user: userId }).select("_id");
+        // Get artistId from Artist collection
+        const artist = await Artist.findOne({ user: userId }).select("_id");
 
-        // verify artistId
-        if (!_id) throw new APIError(404, "No such artist found");
+        // Log artist information
+        logger.info(`Artist: ${artist}`);
 
-        // get image local path
-        let cover_image_local_path: string | undefined;
+        // Verify artistId
+        if (!artist) throw new APIError(404, "No such artist found");
 
-        if (!req.file?.path) {
-            cover_image_local_path = "public/assets/default.jpg";
-        } else {
-            cover_image_local_path = req.file.path;
-        }
+        // Get image local path
+        let cover_image_local_path = req.file?.path || "public/assets/default.jpg";
 
-        const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path);
-        if (typeof cover_image_response !== 'object' && !cover_image_response.hasOwnProperty('url')) {
+        // Log cover image local path
+        logger.info(`Cover Image Local Path: ${cover_image_local_path}`);
+
+        const cover_image_response = await uploadToCloudinary(cover_image_local_path);
+
+        // Log cover image response
+        logger.info(`Cover Image Response: ${cover_image_response}`);
+
+        if (typeof cover_image_response !== 'object' || !('url' in cover_image_response)) {
             throw new APIError(400, "Invalid avatar data");
         }
-        const cover_image_url = (cover_image_response as UploadApiResponse).url;
-        const public_id = (cover_image_response as UploadApiResponse).public_id;
 
+        const { url: cover_image_url, public_id } = cover_image_response;
 
-
-        // create new album
+        // Create a new album
         const album = await Album.create({
             name,
             description,
@@ -60,32 +66,33 @@ export const createAlbum = asyncHandler(async (req: Request, res: Response, next
                 url: cover_image_url,
                 public_id
             },
-            artist: _id
+            artist: artist._id
         });
 
-        // verify the album creation operation
+        // Verify the album creation operation
         if (!album) throw new APIError(400, "Create album failed");
 
-        // send response to the client
-        res
-            .status(201)
-            .json(new APIResponse(
-                201,
-                album,
-                "Created",
-            ))
+        // Send response to the client
+        res.status(201).json(new APIResponse(
+            201,
+            album,
+            "Created",
+        ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
-
 });
 
 // @route PUT /api/v1/albums/:id/add-track
 // @desc Add song to album
 // @access [Artist, Admin]
-export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const addTrackToAlbum = asyncHandler(async (req, res, next) => {
     try {
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const userId = req.user?.id;
+
+        // Log user ID
+        logger.info(`User ID: ${userId}`);
 
         // Validate userId
         if (!userId) {
@@ -93,7 +100,10 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
         }
 
         // Get albumId from request params or body
-        const albumId: mongoose.Types.ObjectId = req.params.id || req.body.albumId;
+        const albumId = req.params.id || req.body.albumId;
+
+        // Log album ID
+        logger.info(`Album ID: ${albumId}`);
 
         // Validate albumId
         if (!albumId) {
@@ -102,6 +112,9 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 
         // Get artistId based on userId
         const artist = await Artist.findOne({ user: userId });
+
+        // Log artist information
+        logger.info(`Artist: ${artist}`);
 
         // Validate artistId
         if (!artist) {
@@ -112,6 +125,9 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
         // Get data from the request body
         const { trackId } = req.body;
 
+        // Log track ID
+        logger.info(`Track ID: ${trackId}`);
+
         // Validate the necessary data
         if (!trackId) {
             throw new APIError(400, "Track ID is required");
@@ -119,6 +135,9 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 
         // Find the album by albumId
         const album = await Album.findById(albumId);
+
+        // Log album details
+        logger.info(`Album: ${album}`);
 
         // Validate the existence of the album
         if (!album) {
@@ -132,6 +151,9 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 
         // Find the track by trackId
         const track = await Track.findById(trackId);
+
+        // Log track details
+        logger.info(`Track: ${track}`);
 
         // Validate the existence of the track
         if (!track) {
@@ -149,12 +171,16 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 
         const updatedAlbum = await Album.findById(albumId);
 
+        // Log updated album details
+        logger.info(`Updated Album: ${updatedAlbum}`);
+
         res.status(200).json(new APIResponse(
             200,
             updatedAlbum,
             "Track added to album successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
@@ -162,9 +188,12 @@ export const addTrackToAlbum = asyncHandler(async (req: Request, res: Response, 
 // @route PUT /api/v1/albums/:id
 // @desc Update album
 // @access [Artist, Admin]
-export const updateAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateAlbum = asyncHandler(async (req, res, next) => {
     try {
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const userId = req.user?.id;
+
+        // Log user ID
+        logger.info(`User ID: ${userId}`);
 
         // Validate userId
         if (!userId) {
@@ -172,7 +201,10 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
         }
 
         // Get albumId from request params
-        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        const albumId = new mongoose.Types.ObjectId(req.params.id);
+
+        // Log album ID
+        logger.info(`Album ID: ${albumId}`);
 
         // Validate albumId
         if (!albumId) {
@@ -182,14 +214,20 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
         // Get artistId based on userId
         const artist = await Artist.findOne({ user: userId });
 
+        // Log artist information
+        logger.info(`Artist: ${artist}`);
+
         // Validate artistId
         if (!artist) {
             throw new APIError(404, "Artist not found");
         }
-        const artistId: mongoose.Types.ObjectId = artist._id;
+        const artistId = artist._id;
 
         // Find the album by albumId
         const album = await Album.findById(albumId);
+
+        // Log album details
+        logger.info(`Album: ${album}`);
 
         // Validate the existence of the album
         if (!album) {
@@ -214,24 +252,30 @@ export const updateAlbum = asyncHandler(async (req: Request, res: Response, next
 
         await album.save();
 
+        // Log updated album details
+        logger.info(`Updated Album: ${album}`);
+
         res.status(200).json(new APIResponse(
             200,
             album,
             "Album updated successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
 
-
 // @route GET /api/v1/albums/:id
 // @desc Get a specific album by ID
 // @access [Artist, Admin, Regular]
-export const getAlbumById = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getAlbumById = asyncHandler(async (req, res, next) => {
     try {
         // Get albumId from request params
-        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        const albumId = new mongoose.Types.ObjectId(req.params.id);
+
+        // Log albumId
+        logger.info(`Album ID: ${albumId}`);
 
         // Validate albumId
         if (!albumId) {
@@ -240,6 +284,9 @@ export const getAlbumById = asyncHandler(async (req: Request, res: Response, nex
 
         // Find the album by albumId
         const album = await Album.findById(albumId);
+
+        // Log album details
+        logger.info(`Album Details: ${album}`);
 
         // Validate the existence of the album
         if (!album) {
@@ -253,18 +300,21 @@ export const getAlbumById = asyncHandler(async (req: Request, res: Response, nex
             "Album retrieved successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
 
-
 // @route GET /api/v1/albums/:artistId
 // @desc Get all albums of a particular artist
 // @access [Artist, Admin, Regular]
-export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getAllAlbum = asyncHandler(async (req, res, next) => {
     try {
         // Get artistId from request params
-        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.artistId);
+        const artistId = new mongoose.Types.ObjectId(req.params.artistId);
+
+        // Log artistId
+        logger.info(`Artist ID: ${artistId}`);
 
         // Validate artistId
         if (!artistId) {
@@ -275,6 +325,9 @@ export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next
         const albums = await Album.find({ artist: artistId });
         const total = albums.length;
 
+        // Log total albums
+        logger.info(`Total Albums: ${total}`);
+
         // Return the albums of the artist
         res.status(200).json(new APIResponse(
             200,
@@ -282,25 +335,29 @@ export const getAllAlbum = asyncHandler(async (req: Request, res: Response, next
             "All albums of the artist retrieved successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
 
-
 // @route DELETE /api/v1/albums/:id/remove-track
 // @desc Remove track from album
 // @access [Artist, Admin]
-export const removeTrackFromAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const removeTrackFromAlbum = asyncHandler(async (req, res, next) => {
     try {
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const userId = req.user?.id;
 
         // Validate userId
         if (!userId) {
             throw new APIError(401, "Invalid request, user not authenticated");
         }
 
-        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id); // Fetch albumId from route params
-        if (!albumId) throw new APIError(400, "Album id is required");
+        const albumId = new mongoose.Types.ObjectId(req.params.id); // Fetch albumId from route params
+        if (!albumId) throw new APIError(400, "Album ID is required");
+
+        // Log the user ID and album ID
+        logger.info(`User ID: ${userId}`);
+        logger.info(`Album ID: ${albumId}`);
 
         // Get trackId from request body
         const { trackId } = req.body;
@@ -333,23 +390,25 @@ export const removeTrackFromAlbum = asyncHandler(async (req: Request, res: Respo
             throw new APIError(404, "Track not found in the album");
         }
 
+        // Log success and send response
+        logger.info("Track removed from album successfully");
         res.status(200).json(new APIResponse(
             200,
             album,
             "Track removed from album successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
 
-
 // @route DELETE /api/v1/albums/:id/remove-album
 // @desc Remove specific album
 // @access [Artist, Admin]
-export const removeAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const removeAlbum = asyncHandler(async (req, res, next) => {
     try {
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const userId = req.user?.id;
 
         // Validate userId
         if (!userId) {
@@ -357,12 +416,11 @@ export const removeAlbum = asyncHandler(async (req: Request, res: Response, next
         }
 
         // Get albumId from request params
-        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        const albumId = new mongoose.Types.ObjectId(req.params.id);
 
-        // Validate albumId
-        if (!albumId) {
-            throw new APIError(400, "Album ID is required");
-        }
+        // Log user ID and album ID
+        logger.info(`User ID: ${userId}`);
+        logger.info(`Album ID: ${albumId}`);
 
         // Find the album by albumId
         const album = await Album.findById(albumId);
@@ -381,23 +439,25 @@ export const removeAlbum = asyncHandler(async (req: Request, res: Response, next
         // Delete the album
         await Album.deleteOne({ _id: albumId });
 
+        // Log success and send response
+        logger.info("Album removed successfully");
         res.status(200).json(new APIResponse(
             200,
             {},
             "Album removed successfully"
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
 
-
 // @route   POST /api/v1/albums/:id/like
 // @desc    Like album
 // @access  [Admin, Artist, Regular]
-export const likeAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const likeAlbum = asyncHandler(async (req, res, next) => {
     // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId = req.user?.id;
 
     try {
         // validate user id
@@ -406,23 +466,29 @@ export const likeAlbum = asyncHandler(async (req: Request, res: Response, next: 
         }
 
         // get albumId from params
-        const albumId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        const albumId = new mongoose.Types.ObjectId(req.params.id);
 
         // validate album id
         if (!albumId) {
             throw new APIError(400, "Invalid albumId");
         }
 
-        // retrive like document if exists
+        // Log user ID and album ID
+        logger.info(`User ID: ${userId}`);
+        logger.info(`Album ID: ${albumId}`);
+
+        // retrieve like document if exists
         const like = await Like.findOne({ target_type: "Album", target_id: albumId, user: userId });
 
-        // retrive album document by using albumId
+        // retrieve album document by using albumId
         const album = await Album.findById(albumId);
 
         // validate album
-        if (!album || album.totalLikes === undefined) throw new APIError(400, "album should not be null");
+        if (!album || album.totalLikes === undefined) {
+            throw new APIError(400, "album should not be null");
+        }
 
-        if (like) { // if already like that album then remove the document and remove 1 like from totalLikes
+        if (like) { // if already liked that album, then remove the document and decrease 1 like from totalLikes
             await Like.deleteOne(like._id);
             album.totalLikes = album.totalLikes - 1;
         } else { // else create a new document and add 1 like into totalLikes
@@ -430,23 +496,24 @@ export const likeAlbum = asyncHandler(async (req: Request, res: Response, next: 
                 user: userId,
                 target_type: "Album",
                 target_id: albumId,
-            })
+            });
             album.totalLikes = album.totalLikes + 1;
         }
 
         // save the album
         await album.save({ validateBeforeSave: false });
 
-        // retrive the new album
+        // retrieve the new album
         const updatedAlbum = await Album.findById(albumId);
 
-        // send response back to client
+        // Log success and send response back to the client
+        logger.info(`Album liked successfully. Total Likes: ${updatedAlbum?.totalLikes}`);
         res.status(200).json(new APIResponse(
             200,
             { totalLikes: updatedAlbum?.totalLikes }
         ));
     } catch (error) {
+        logger.error(error); // Log the error using your logger
         next(error);
     }
 });
-

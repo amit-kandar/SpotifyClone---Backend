@@ -18,15 +18,24 @@ const myFormat = printf((info: LogFormat) => {
 const myCustomLevels = {
     levels: {
         error: 0,
-        warning: 1,
-        info: 2
+        warn: 1,
+        info: 2,
+        http: 3,
+        verbose: 4,
+        debug: 5,
+        silly: 6
     },
     colors: {
         error: 'red',
-        warning: 'yellow',
+        warn: 'yellow',
         info: 'blue',
+        http: 'green',
+        verbose: 'cyan',
+        debug: 'magenta',
+        silly: 'white'
     }
 };
+
 
 const spotifyLogger = () => {
     return createLogger({
