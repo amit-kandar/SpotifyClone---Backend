@@ -3,6 +3,7 @@ import cors from "cors";
 import { DATA_LIMIT } from "./constants";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/errorHandler.middleware";
+import redisClient from "./config/redis";
 
 const app: Application = express();
 
@@ -19,7 +20,7 @@ app.use(express.static("public"));
 
 app.use(cookieParser())
 
-
+redisClient.connect()
 
 // Import all routes
 import userRoutes from './routes/user.routes';
