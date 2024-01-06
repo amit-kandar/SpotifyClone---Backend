@@ -38,7 +38,7 @@ export const createPlaylist = asyncHandler(async (req: Request, res: Response, n
             cover_image_local_path = req.file.path;
         }
 
-        const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path);
+        const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path, "playlists");
         if (typeof cover_image_response !== 'object' && !cover_image_response.hasOwnProperty('url')) {
             throw new APIError(400, "Invalid cover_image_response data");
         }
@@ -173,7 +173,7 @@ export const updatePlaylist = asyncHandler(async (req: Request, res: Response, n
         // Check if a new cover image is uploaded
         if (req.file?.path) {
             const cover_image_local_path: string = req.file.path;
-            const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path);
+            const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path, "playlists");
 
             if (typeof cover_image_response === 'object' && cover_image_response.hasOwnProperty('url')) {
                 const cover_image_url = (cover_image_response as UploadApiResponse).url;

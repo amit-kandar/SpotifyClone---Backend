@@ -41,7 +41,7 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
         if (!coverImageLocalPath || !trackLocalPath) throw new APIError(400, "All file are required");
 
         // upload cover image to cloudinary
-        const coverImageResponse: UploadApiResponse | string = await uploadToCloudinary(coverImageLocalPath);
+        const coverImageResponse: UploadApiResponse | string = await uploadToCloudinary(coverImageLocalPath, "tracks");
 
         // validate upload response
         if (typeof coverImageResponse === 'string') throw new APIError(400, "Cover Image upload failed");
@@ -49,7 +49,7 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
         const image_public_id = coverImageResponse.public_id;
 
         // upload song to cloudinary
-        const trackResponse: UploadApiResponse | string = await uploadToCloudinary(trackLocalPath);
+        const trackResponse: UploadApiResponse | string = await uploadToCloudinary(trackLocalPath, "tracks");
 
         // validate upload response
         if (typeof trackResponse === 'string' || !('duration' in trackResponse)) throw new APIError(400, "Track upload failed");

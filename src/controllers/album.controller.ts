@@ -43,7 +43,7 @@ export const createAlbum = asyncHandler(async (req: Request, res: Response, next
             cover_image_local_path = req.file.path;
         }
 
-        const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path);
+        const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path, "albums");
         if (typeof cover_image_response !== 'object' && !cover_image_response.hasOwnProperty('url')) {
             throw new APIError(400, "Invalid avatar data");
         }
