@@ -42,7 +42,7 @@ const spotifyLogger = () => {
         levels: myCustomLevels.levels,
         format: combine(
             colorize({ all: true, colors: myCustomLevels.colors }),
-            timestamp({ format: "HH:mm:ss" }),
+            timestamp({ format: "YY-MM-DD HH:mm:ss" }),
             myFormat,
         ),
         transports: [
