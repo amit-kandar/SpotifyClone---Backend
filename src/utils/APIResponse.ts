@@ -19,7 +19,7 @@ class APIResponse {
         this.timestamp = new Date();
 
         // Log the API response creation
-        logger.info(`API Response created - Status: ${statusCode}, Message: ${message}`);
+        logger.info(`API Response - Status: ${statusCode}, Message: ${message}`);
     }
 }
 
