@@ -4,7 +4,7 @@ import logger from '../config/logger'; // Import your logger instance here
 
 const MAX_UPLOAD_TRIES = 2;
 
-export const uploadToCloudinary = async (filePath: string): Promise<UploadApiResponse | string> => {
+export const uploadToCloudinary = async (filePath: string, folderName: string): Promise<UploadApiResponse | string> => {
     let tries = 0;
 
     while (tries < MAX_UPLOAD_TRIES) {
@@ -13,7 +13,8 @@ export const uploadToCloudinary = async (filePath: string): Promise<UploadApiRes
 
             // Upload the file to Cloudinary
             const response = await cloudinary.uploader.upload(filePath, {
-                resource_type: "auto"
+                resource_type: "auto",
+                folder: `Spotify/${folderName}`
             });
 
             // File uploaded successfully
