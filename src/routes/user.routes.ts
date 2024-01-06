@@ -36,7 +36,7 @@ router.get("/signout", checkAuth, signout);
 router.post("/refresh-token", getAccessTokenByRefreshToken);
 
 // Route for getting user details
-router.get("/user", checkAuth, getUserDetails);
+router.get("/fetch-user", checkAuth, getUserDetails);
 
 // Route for updating user details
 router.put("/user", checkAuth, updateUserDetails);
