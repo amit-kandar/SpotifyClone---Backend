@@ -10,13 +10,15 @@ import jwt from "jsonwebtoken";
 import { generateUniqueUsernameFromName } from "../utils/generateUsername";
 import validator from 'validator';
 import { v2 as cloudinary } from "cloudinary";
-import mongoose from "mongoose";
 import redisClient from "../config/redis";
+import { Artist } from "../models/artist.model";
 
 const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
         const user: UserDocument | null = await User.findById(userId);
-        if (!user) throw new APIError(404, "User not found");
+        if (!user)
+            throw new APIError(404, "User Not Found");
+
         const accessToken: string = await user.generateAccessToken();
         const refreshToken: string = await user.generateRefreshToken();
 
@@ -24,7 +26,7 @@ const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ acc
         user.save({ validateBeforeSave: false });
         return { accessToken, refreshToken };
     } catch (error) {
-        throw new APIError(500, "Something went wrong while generating accessToken and refreshToken");
+        throw new APIError(500, "Something Went Wrong While Generating AccessToken And RefreshToken");
     }
 }
 
@@ -48,51 +50,60 @@ const isValidDateFormat = (dateString: string): boolean => {
 // @access  Public
 export const checkEmail = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // get email from body
+        // Extract email from the request body
         const { email } = req.body;
 
-        // Check email validation
-        if (!validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+        // Validate the email format
+        if (!validator.isEmail(email)) {
+            throw new APIError(400, "Invalid Email Format");
+        }
 
-        // check email exists in the database
-        let user = await User.findOne({ email });
+        // Check if the email exists in the database
+        const userWithEmail = await User.findOne({ email });
+        const isEmailExists = Boolean(userWithEmail);
 
-        // send response to user with email_exists
-        res
-            .status(200)
-            .json(new APIResponse(
+        // Construct the response data
+        const responseData = {
+            email_exists: isEmailExists
+        };
+
+        // Send response with email existence status
+        res.status(200).json(
+            new APIResponse(
                 200,
-                {
-                    email_exists: Boolean(user)
-                }
-            ))
+                responseData,
+                `Email: ${email}, Exists: ${isEmailExists}`
+            )
+        );
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   POST /api/v1/users/signup
 // @desc    User signup
 // @access  Public
 export const signup = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Get user details
-        const { name, email, password, date_of_birth } = req.body; // Date should be YYYY-MM-DD format
+        const { name, email, password, date_of_birth } = req.body;
 
-        // Check for empty fields
-        if (!name || !email || !password || !date_of_birth) throw new APIError(400, "All fields are required!");
+        if (!name || !email || !password || !date_of_birth) {
+            throw new APIError(400, "All Fields Are Required");
+        }
 
-        // Check email validation
-        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+        if (!validator.isEmail(email)) {
+            throw new APIError(400, "Invalid Email");
+        }
 
-        // Check date of birth validation
-        if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
+        if (!isValidDateFormat(date_of_birth)) {
+            throw new APIError(400, "Invalid Date of Birth");
+        }
 
-        // Check if user already exists
         const isExistUser = await User.findOne({ email: email });
-        if (isExistUser) throw new APIError(409, "Email already exists!");
+        if (isExistUser) {
+            throw new APIError(409, "Email Already In Use");
+        }
 
-        // Check for image
         let avatarLocalPath: string | undefined;
 
         if (!req.file?.path) {
@@ -101,66 +112,54 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             avatarLocalPath = req.file.path;
         }
 
-        // Upload the image to the cloudinary
-        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath, "users");
 
-        let avatarURL: string;
-        let public_id: string;
+        if (typeof avatar !== 'object' || !avatar.hasOwnProperty('url') || !avatar.hasOwnProperty('public_id'))
+            throw new APIError(400, "Invalid Cloudinary Response");
 
-        if (typeof avatar === 'object' && avatar.hasOwnProperty('url')) {
-            avatarURL = (avatar as UploadApiResponse).url;
-            public_id = (avatar as UploadApiResponse).public_id;
-        } else {
-            throw new APIError(400, "Invalid avatar data");
-        }
+        const { url: avatarURL, public_id } = avatar as UploadApiResponse;
 
-        // generate username
         const username = generateUniqueUsernameFromName(name);
 
-        // Create a user object and save it to datebase
         const user = await User.create({
             name,
             username,
             email,
             password,
             date_of_birth,
-            avatar: avatarURL!,
+            avatar: avatarURL,
             public_id
-        })
+        });
 
-        // generate refresh token and access token and set refreshToken into database
         const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
 
-        // set refresh token to the database
         const updatedUserDetails = await User.findOneAndUpdate(
             { _id: user._id },
             { $set: { refreshToken: refreshToken } },
             { new: true, select: "-password -refreshToken" }
         );
 
-        // store user data in Redis cache
-        redisClient.setEx(`user:${user._id}`, 3600, JSON.stringify(updatedUserDetails));
+        redisClient.setEx(`${user._id}`, 3600, JSON.stringify(updatedUserDetails));
 
-        // return response to user
         res
             .status(201)
             .cookie("accessToken", accessToken, { secure: true, httpOnly: true })
             .cookie("refreshToken", refreshToken, { secure: true, httpOnly: true })
             .json(
                 new APIResponse(
-                    200,
+                    201,
                     {
                         user: updatedUserDetails,
                         accessToken,
                         refreshToken
                     },
-                    "User created successfully"
+                    "User Created Successfully"
                 )
             );
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   POST /api/v1/users/signin
 // @desc    User signin
@@ -171,33 +170,53 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
         const { email, username, password } = req.body;
 
         // Check for empty fields
-        if ((!email && !username) || !password) throw new APIError(400, (!email && !username) ? "Email or username is required!" : "Password is required!");
-
+        if ((!email && !username) || !password) {
+            throw new APIError(400, (!email && !username) ? "Email Or Username Is Required" : "Password Is Required");
+        }
 
         // Check email validation
-        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid Email");
+        if (email && !validator.isEmail(email)) {
+            throw new APIError(400, "Invalid Email");
+        }
 
-        //Retrive the user using email
+        // Retrieve the user using email or username
         const user = await User.findOne({ $or: [{ username }, { email }] });
 
-        // Is user exists
-        if (!user) throw new APIError(404, "User does not exists");
+        // Check if the user exists
+        if (!user) {
+            throw new APIError(404, "User Doesn't Exist");
+        }
 
         // Compare input password and existing user password
         const isValidPassword: boolean = await user.isCorrectPassword(password);
 
-        if (!isValidPassword) throw new APIError(401, "Invalid user credentials!");
+        if (!isValidPassword) {
+            throw new APIError(401, "Invalid User Credentials");
+        }
 
-        // generate refresh token and access token and set refreshToken into database
+        // Generate refresh token and access token and set refreshToken into the database
         const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
 
-        // retrive the user from database again because refresh token has set
-        const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
-        // await redisClient.connect()
-        // store user data in Redis cache
-        redisClient.setEx(`user:${user._id}`, 3600, JSON.stringify(loggedInUser));
+        // Retrieve the user from the database again because refresh token has been set
+        const newUser = await User.findById(user._id).select("-password -refreshToken");
 
-        // set the refreshToken and accessToken to cookies and send back user
+        // Validate retrieved user data
+        if (!newUser) {
+            throw new APIError(400, "Invalid Retrieved User Data");
+        }
+
+        let loggedInUser;
+        if (newUser?.role === 'artist') {
+            const artist = await Artist.findOne({ user: newUser._id });
+            loggedInUser = { ...newUser.toObject(), details: { ...artist?.toObject() } };
+        } else {
+            loggedInUser = newUser;
+        }
+
+        // Store user data in Redis cache
+        redisClient.setEx(`${user._id}`, 3600, JSON.stringify(loggedInUser));
+
+        // Set the refreshToken and accessToken to cookies and send back user
         res
             .status(200)
             .cookie("accessToken", accessToken, { httpOnly: true, secure: true })
@@ -209,175 +228,173 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
                     accessToken,
                     refreshToken
                 },
-                "Logged in Successfully"
+                "User Successfully Logged In"
             ));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   POST /api/v1/users/signout
 // @desc    User signout
 // @access  Private
 export const signout = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        if (!req.user) throw new APIError(401, "Invalid request, signin again");
+        if (!req.user) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
+
         await User.findByIdAndUpdate(
             req.user?._id,
             {
                 $set: {
                     refreshToken: ""
                 }
-            });
+            }
+        );
+
         res
             .status(200)
             .clearCookie("accessToken", { httpOnly: true, secure: true })
             .clearCookie("refreshToken", { httpOnly: true, secure: true })
-            .json(new APIResponse(200, {}, "User sign out"))
+            .json(new APIResponse(200, {}, "User Signout Successfully"))
             .end();
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   POST /api/v1/users/refresh-token
 // @desc    Get Access Token by Refresh Token
 // @access  Private
 export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // Get refresh token
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
-
-    // check empty field
-    if (!incomingRefreshToken) throw new APIError(403, "Unauthorized Request");
-
-    // fetch token secret
-    const refreshSecret: string | undefined = process.env.REFRESH_TOKEN_SECRET;
-    if (!refreshSecret) throw new APIError(404, "secret not found");
-
     try {
-        // validate refresh token
+        const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if (!incomingRefreshToken) {
+            throw new APIError(403, "Unauthorized Request");
+        }
+
+        const refreshSecret: string | undefined = process.env.REFRESH_TOKEN_SECRET;
+        if (!refreshSecret) {
+            throw new APIError(404, "Refresh Token Secret Not Found");
+        }
+
         const decoded = jwt.verify(incomingRefreshToken, refreshSecret);
-        if (typeof decoded === "string") throw new APIError(400, "Invalid decoded information");
+        if (typeof decoded === "string") {
+            throw new APIError(400, "Invalid Decoded Information");
+        }
 
-        // retrive user from database
         const user = await User.findById(decoded._id).select("-password");
-        if (!user) throw new APIError(400, "User Not found");
+        if (!user) {
+            throw new APIError(400, "User Not Found");
+        }
 
-        // compare stored refresh token with incoming refresh token
-        if (user.refreshToken !== incomingRefreshToken) throw new APIError(401, "Invalid request, please signin again.");
+        if (user.refreshToken !== incomingRefreshToken) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
 
-        // generate refresh token and access token and set refreshToken into database
-        const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
+        const accessToken = user.generateAccessToken;
 
-        // set the refreshToken and accessToken to cookies and send back user
         res
             .status(200)
             .cookie("accessToken", accessToken, { httpOnly: true, secure: true })
-            .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true })
             .json(new APIResponse(
                 200,
-                {
-                    accessToken,
-                    refreshToken
-                },
-                "Access token refreshed successfully"
+                { accessToken },
+                "Access Token Refreshed Successfully"
             ));
     } catch (error) {
         next(error);
     }
-
-})
-
-// @route   GET /api/v1/users/user
+});
+// @route   GET /api/v1/users/fetch-user
 // @desc    Get user details
 // @access  Private
 export const getUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        if (!req.user) throw new APIError(401, "Invalid request, signin again");
+        const userDetails = req.user;
 
-        const user = req.user as UserDocument;
+        if (!userDetails) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
 
         res.status(200).json(new APIResponse(
             200,
-            { user: user }, // Sending user object from the request
-            "Fetched user successfully from database"
+            userDetails,
+            "Successfully Fetched User Details"
         ));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   PUT /api/v1/users/user
 // @desc    Update user details
 // @access  Private
 export const updateUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId = req.user?._id;
-
     try {
-        // check for valid request
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const userId = req.user?._id;
 
-        // Get data from req.body
-        const { name, email, date_of_birth } = req.body;
-
-        // Check for empty fields
-        if (!name && !email && !date_of_birth) {
-            throw new APIError(400, "At least one field is required");
+        if (!userId) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
         }
 
+        const { name, email, date_of_birth } = req.body;
+        const user = req.user;
 
-        // validate date of birth
-        if (date_of_birth && !isValidDateFormat(date_of_birth)) throw new APIError(400, "Invalid date of birth");
+        if (!name && !email && !date_of_birth) {
+            throw new APIError(400, "At Least One Field Is Required");
+        }
 
-        // validate email
-        if (email && !validator.isEmail(email)) throw new APIError(400, "Invalid email");
+        if (date_of_birth && !isValidDateFormat(date_of_birth)) {
+            throw new APIError(400, "Invalid Date Of Birth");
+        }
 
-        // check for field value already exists
-        if (req.user?.name === name || req.user?.email === email || req.user?.date_of_birth === date_of_birth) throw new APIError(400, "Given value already exists!")
+        if (!validator.isEmail(email)) {
+            throw new APIError(400, "Invalid Email");
+        }
 
-        // retrive updated value from database
+        if (user?.name === name || user?.email === email || user?.date_of_birth === date_of_birth) {
+            throw new APIError(400, "Given Value Already Exists");
+        }
+
         const updatedUserDetails = await User.findOneAndUpdate(
             { _id: userId },
             { $set: { name: name, email: email, date_of_birth: date_of_birth } },
-            { new: true, select: "name email date_of_birth" }
+            { new: true, select: "-password -refreshToken" }
         );
 
-        // check updatedUserDetails
         if (!updatedUserDetails) {
-            throw new APIError(404, 'Updated user details not found');
+            throw new APIError(404, 'User Details Were Not Updated Or Not Found');
         }
 
-        // send response
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                { user: updatedUserDetails },
-                "User updated successfully"
-            ));
+        res.status(200).json(new APIResponse(
+            200,
+            { user: updatedUserDetails },
+            "User updated successfully"
+        ));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   PUT /api/v1/users/change-avatar
 // @desc    Change Avatar
 // @access  Private
 export const changeAvatar = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // fetch userId from req.user
-    const userId = req.user?.id;
     try {
-        const user = await User.findById(userId).select("-password -refreshToken");
-        if (!user) throw new APIError(401, "Invalid request, signin again");
+        const user = req.user;
+        if (!user) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
 
-        // get avatar localpath
-        if (!req.file?.path) throw new APIError(400, "Image not found");
-
+        if (!req.file?.path) {
+            throw new APIError(400, "Image Not Found");
+        }
         const avatarLocalPath: string | undefined = req.file.path;
 
-        // Upload the image to the cloudinary
-        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath);
+        const avatar: UploadApiResponse | string = await uploadToCloudinary(avatarLocalPath, "users");
 
         let avatarURL: string;
         let public_id: string;
@@ -386,105 +403,81 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
             avatarURL = (avatar as UploadApiResponse).url;
             public_id = (avatar as UploadApiResponse).public_id;
         } else {
-            throw new APIError(400, "Invalid avatar data");
+            throw new APIError(400, "Invalid Cloudinary Response");
         }
 
-        // previous avatar url
-        let oldAvatarUrl = user?.avatar;
+        const oldPublicId: string = user.public_id;
+        if (!oldPublicId) {
+            throw new APIError(400, "Previous Public Id Not Found");
+        }
 
-        // set the cloudinary public url to database
+        await cloudinary.uploader.destroy(oldPublicId);
+
         user.avatar = avatarURL;
         user.public_id = public_id;
 
-        // Delete the previous avatar from Cloudinary if it exists
-        const Old_public_id: string | undefined = req.user?.public_id;
-        if (!Old_public_id) throw new APIError(400, "Public id not found");
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: user._id },
+            { $set: { avatar: avatarURL, public_id: public_id } },
+            { new: true, select: "-password -refreshToken" }
+        );
 
-        if (!oldAvatarUrl) throw new APIError(400, "Previous avatar not found");
-        await cloudinary.uploader.destroy(Old_public_id);
-
-        // save the user
-        await user.save({ validateBeforeSave: false });
-
-        // fetch the updated user
-        const updatedAvatar = await User.findById(user._id).select("avatar");
-
-
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                { user: updatedAvatar },
-                "Avatar updated successfully!"
-            ));
+        res.status(200).json(new APIResponse(200, updatedUser, "Avatar Updated Successfully"));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   PUT /api/v1/users/change-password
 // @desc    Change password
 // @access  Private
 export const changePassword = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId = req.user?._id;
-
     try {
-        // retrive user by userId
-        const user = await User.findById(userId).select("-refreshToken")
-        // Check if user not found
-        if (!user) throw new APIError(401, "Invalid request, signin again");
+        const user = req.user;
 
-        // get old password and new password from req.body
-        const { oldPassword, newPassword } = req.body;
+        if (!user) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
 
-        // verify old password
-        const isCorrect = user.isCorrectPassword(oldPassword);
+        const { password, newPassword } = req.body;
 
-        // check if passwords are not same
-        if (!isCorrect) throw new APIError(400, "Old Password is incorrect!");
+        const isCorrectPassword = await user.isCorrectPassword(password);
 
-        // hash new password and save it in the database
-        user.password = newPassword;
-        user.save({ validateBeforeSave: false });
+        if (!isCorrectPassword) {
+            throw new APIError(400, "Incorrect Password");
+        }
 
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                null,
-                "Password changed successfully!"
-            ));
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { password: newPassword } }
+        );
+
+        res.status(200).json(new APIResponse(200, null, "Password Changed Successfully"));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   POST /api/v1/users/reset-password
 // @desc    reset password
 // @access  Private
 export const resetPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId = req.user;
-
     try {
-        // retrive user from database
-        const user = await User.findById(userId).select("-password -refreshToken");
+        const user = req.user;
 
-        // check user exists or not
-        if (!user) throw new APIError(401, "Invalid request, signin again");
+        if (!user) {
+            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        }
 
-        // get new password from req.body
         const { password } = req.body;
 
-        // save it to database
-        user.password = password;
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { password: password } },
+        );
 
-        await user.save({ validateBeforeSave: false });
-        res
-            .status(200)
-            .json(new APIResponse(200, null, "Successfully password reset"));
+        res.status(200).json(new APIResponse(200, "Password Reset Successful"));
     } catch (error) {
         next(error);
     }
-})
+});
