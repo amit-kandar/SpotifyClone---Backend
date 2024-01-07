@@ -39,7 +39,7 @@ router.post("/refresh-token", getAccessTokenByRefreshToken);
 router.get("/fetch-user", checkAuth, getUserDetails);
 
 // Route for updating user details
-router.put("/user", checkAuth, updateUserDetails);
+router.put("/update-user", checkAuth, updateUserDetails);
 
 // Route for changing user avatar
 router.put("/change-avatar", checkAuth, upload.single("avatar"), changeAvatar);
