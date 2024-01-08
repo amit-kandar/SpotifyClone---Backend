@@ -329,7 +329,7 @@ export const getUserDetails = asyncHandler(async (req: Request, res: Response, n
     }
 });
 
-// @route   PUT /api/v1/users/user
+// @route   PUT /api/v1/users/update-user
 // @desc    Update user details
 // @access  Private
 export const updateUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
