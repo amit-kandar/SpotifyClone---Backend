@@ -67,4 +67,7 @@ const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
     }
 }, { timestamps: true });
 
+// Create text index for full-text search
+TrackSchema.index({ title: 'text', genre: 'text' });
+
 export const Track = model<trackDocument>('Track', TrackSchema);

@@ -30,4 +30,7 @@ const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
     }
 }, { timestamps: true });
 
+// Create text index for full-text search
+ArtistSchema.index({ name: 'text' });
+
 export const Artist = model<ArtistDocument>('Artist', ArtistSchema);

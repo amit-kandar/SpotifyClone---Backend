@@ -45,4 +45,7 @@ const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
     }
 }, { timestamps: true });
 
+// Create text index for full-text search
+AlbumSchema.index({ name: 'text' });
+
 export const Album = model<albumDocument>('Album', AlbumSchema);

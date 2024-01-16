@@ -41,4 +41,7 @@ const PlaylistSchema = new Schema<playlistDocument, Model<playlistDocument>>({
 
 }, { timestamps: true })
 
+// Create text index for full-text search
+PlaylistSchema.index({ name: 'text' });
+
 export const Playlist = model<playlistDocument>("Playlist", PlaylistSchema);

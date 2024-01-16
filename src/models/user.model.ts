@@ -104,5 +104,6 @@ UserSchema.methods.generateRefreshToken = async function (): Promise<string> {
         },
     );
 }
+UserSchema.index({ name: 'text' });
 
 export const User = model<UserDocument>('User', UserSchema);
