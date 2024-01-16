@@ -15,7 +15,7 @@ import { Like } from "../models/like.model";
 // @access  [Artist, Admin]
 export const addTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // check user exists or not
@@ -93,7 +93,7 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
 // @access  Private
 export const getAllTracks = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // check user exists or not
@@ -129,7 +129,7 @@ export const getAllTracks = asyncHandler(async (req: Request, res: Response, nex
 // @access  Private
 export const getTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // check user exists or not
@@ -165,7 +165,7 @@ export const getTrack = asyncHandler(async (req: Request, res: Response, next: N
 // @access  [Admin, Artist]
 export const updateTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
     try {
         // check user exists or not
         if (!userId) throw new APIError(401, "Invalid request, signin again");
@@ -210,7 +210,7 @@ export const updateTrack = asyncHandler(async (req: Request, res: Response, next
 // @access  [Admin, Artist]
 export const removeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // validate userId
@@ -251,7 +251,7 @@ export const removeTrack = asyncHandler(async (req: Request, res: Response, next
 // @access  [Admin, Artist]
 export const likeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?.id;
+    const userId: mongoose.Types.ObjectId = req.user?._id;
 
     try {
         // validate user id
