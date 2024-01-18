@@ -49,7 +49,7 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
                 throw new APIError(404, "Invalid access token");
 
             req.user = {
-                ...user,
+                ...user.toObject(),
                 details: { ...artist.toObject() }
             };
         } else {
