@@ -294,7 +294,7 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
             throw new APIError(401, "Unauthorized. Please Sign in Again");
         }
 
-        const accessToken = user.generateAccessToken;
+        const accessToken = await user.generateAccessToken();
 
         res
             .status(200)
