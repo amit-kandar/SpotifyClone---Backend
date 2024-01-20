@@ -4,10 +4,7 @@ import { APIError } from "../utils/APIError";
 import { Artist } from "../models/artist.model";
 import { APIResponse } from "../utils/APIResponse";
 import { User } from "../models/user.model";
-import mongoose, { Schema } from "mongoose";
-import { Follower } from "../models/follower.model";
-import { Like } from "../models/like.model";
-import logger from "../config/logger";
+import mongoose from "mongoose";
 
 const genres = [
     "rock",
@@ -17,16 +14,15 @@ const genres = [
     "blues",
 ];
 
-
-// @route   POST /api/v1/artists/create
+// @route   POST /api/v1/artists/
 // @desc    Create artist profile
 // @access  [regular, admin]
 export const createArtistProfile = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const user_id = req.user?._id;
 
-        if (!userId) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
         }
 
         let { genre, bio } = req.body;
@@ -47,7 +43,7 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
 
         try {
             const updatedUser = await User.findOneAndUpdate(
-                { _id: userId },
+                { _id: user_id },
                 { $set: { role: "artist", refreshToken: "" } },
                 { session, new: true }
             );
@@ -59,8 +55,8 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
             }
 
             const newArtist = await Artist.findOneAndUpdate(
-                { user: userId },
-                { user: userId, genre, bio },
+                { user: user_id },
+                { user: user_id, genre, bio },
                 { session, upsert: true, new: true }
             );
 
@@ -81,7 +77,7 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
-            throw error;
+            next(error);
         }
     } catch (error) {
         next(error);
@@ -89,26 +85,29 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
 });
 
 // @route   PUT /api/v1/artists/:id
-// @desc    Create artist profile
+// @desc    Update artist profile
 // @access  [artist, admin]
-export const updateArtistProfile = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const userId = req.user?._id;
-    const artistId = new mongoose.Types.ObjectId(req.params.id);
-
-    const { genre, bio } = req.body;
-
+export const updateArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Signin To Proceed.");
+        const user_id = req.user?._id;
+        const artist_id = new mongoose.Types.ObjectId(req.params.id);
+
+        const { genre, bio } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
+        if (!mongoose.Types.ObjectId.isValid(artist_id)) {
+            throw new APIError(400, "Invalid Artist ID");
         }
 
-        const artist = await Artist.findById(artistId).lean();
+        const artist = await Artist.findById(artist_id).lean();
 
         if (!artist) {
             throw new APIError(404, "Artist Not Found: The Requested Artist Does Not Exist.");
         }
 
-        const isUserAuthorized = (artist.user)?.toString() === userId.toString();
+        const isUserAuthorized = (artist.user)?.toString() === user_id.toString();
         if (!isUserAuthorized) {
             throw new APIError(403, "Permission Denied: You Don't Have The Required Permissions To Perform This Action.");
         }
@@ -126,7 +125,7 @@ export const updateArtistProfile = asyncHandler(async (req: Request, res: Respon
         }
 
         const updatedArtistDetails = await Artist.findOneAndUpdate(
-            { _id: artistId },
+            { _id: artist_id },
             { $set: updateFields },
             { new: true }
         ).lean();
@@ -149,28 +148,23 @@ export const updateArtistProfile = asyncHandler(async (req: Request, res: Respon
 // @route   GET /api/v1/artsists/:id
 // @desc    Get artist by id
 // @access  [artist, admin, regular]
-// have to check when userId and artist model user are not same
-export const getArtistById = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // Get user ID from req.user
-    const userId = req.user?._id;
-
-    // Get artist ID from params
-    const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
+// have to check when user_id and artist model user are not same
+export const getArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Check for valid request
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Signin To Proceed.");
+        const user_id = req.user?._id;
+
+        const artist_id = new mongoose.Types.ObjectId(req.params.id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
         }
 
-        // Validate artist ID
-        if (!artistId) {
+        if (!mongoose.Types.ObjectId.isValid(artist_id)) {
             throw new APIError(404, "Artist Not Found: No Artist ID Provided.");
         }
 
-        // Find artist by ID with aggregate query
         const artist = await Artist.aggregate([
-            { $match: { _id: artistId } },
+            { $match: { _id: artist_id } },
             {
                 $lookup: {
                     from: "users",
@@ -197,12 +191,10 @@ export const getArtistById = asyncHandler(async (req: Request, res: Response, ne
             }
         ]);
 
-        // Verify if the artist exists
         if (!artist || !artist.length) {
             throw new APIError(404, "Artist Not Found: No Artist Found With Provided ID.");
         }
 
-        // Send response with artist details
         res.status(200).json(new APIResponse(
             200,
             { Artist: artist[0] },
@@ -216,16 +208,14 @@ export const getArtistById = asyncHandler(async (req: Request, res: Response, ne
 // @route   GET /api/v1/artists/
 // @desc    Fetch All artists
 // @access  [artist, admin, regular]
-export const getAllArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const user_id = req.user?._id;
 
-        // Check for valid request
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Signin To Proceed.");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
         }
 
-        // Retrieve artists with user details using aggregation
         const artists = await Artist.aggregate([
             {
                 $lookup: {
@@ -249,201 +239,15 @@ export const getAllArtists = asyncHandler(async (req: Request, res: Response, ne
             }
         ]);
 
-        // Check if artists were fetched
         if (!artists || !artists.length) {
             throw new APIError(404, "Artists Not Found: No Artists Found.");
         }
 
-        // Send response to user with artists' details
         res.status(200).json(new APIResponse(
             200,
             { Artists: artists },
             "Artists Fetched Successfully."
         ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route   POST /api/v1/artists/:id/follow
-// @desc    Follow specific artist by :id
-// @access  [admin, artist, regular]
-export const followArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const userId = req.user?._id;
-    const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-    try {
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Sign in To Proceed.");
-        }
-
-        if (!artistId) {
-            throw new APIError(404, "Artist Not Found: No Artist ID Provided.");
-        }
-
-        const followQuery = { user: userId, artist: artistId };
-        const isFollowed = await Follower.findOneAndDelete(followQuery).lean();
-
-        const isUnfollowed = !!isFollowed;
-
-        if (!isUnfollowed) {
-            await Follower.create(followQuery);
-        }
-
-        const message = isUnfollowed ? "Unfollowed successfully." : "Follow Request Sent Successfully.";
-
-        res.status(isUnfollowed ? 200 : 201).json(new APIResponse(
-            isUnfollowed ? 200 : 201, isUnfollowed ? { isFollow: false } : { isFollow: true },
-            message
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route GET /api/v1/artists/following-artists
-// @desc Get all the artist whom a perticuler user following
-// @access [admin, artist, regular]
-export const followingArtistByUser = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Get userId from req.user
-        const userId = req.user?._id;
-
-        // Check if userId is valid
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Signin Again.");
-        }
-
-        // Retrieve all artists that the particular user follows
-        const allFollowingArtists = await Follower.aggregate([
-            { $match: { user: userId } },
-            {
-                $lookup: {
-                    from: "artists",
-                    let: { artistId: "$artist" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", "$$artistId"] } } },
-                        { $project: { __v: 0 } }
-                    ],
-                    as: "Artist"
-                }
-            },
-            {
-                $lookup: {
-                    from: "users",
-                    let: { userId: "$user" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", "$$userId"] } } },
-                        { $project: { password: 0, refreshToken: 0, public_id: 0, email: 0, __v: 0, role: 0 } }
-                    ],
-                    as: "Details"
-                }
-            },
-            { $unwind: { path: "$Artist", preserveNullAndEmptyArrays: true } },
-            { $unwind: "$Details" },
-            { $project: { __v: 0 } }
-        ]);
-
-        // Check if any artists are found
-        if (!allFollowingArtists || allFollowingArtists.length === 0) {
-            throw new APIError(404, "No Followed Artists Found For The User.");
-        }
-
-        const total = allFollowingArtists.length;
-
-        // Send response to user
-        res.status(200).json(new APIResponse(
-            200,
-            { total, Following: allFollowingArtists },
-            "Successfully Fetched All Followed Artists."
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route   POST /api/v1/artists/:id/like
-// @desc    Like artist
-// @access  [Admin, Artist, Regular]
-export const likeArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Get userId from req.user
-        const userId = req.user?.id;
-
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Unauthorized: Please Sign In Again.");
-        }
-
-        // Get artistId from params
-        const artistId = req.params.id;
-
-        // Validate artist ID
-        if (!artistId || !mongoose.Types.ObjectId.isValid(artistId)) {
-            throw new APIError(400, "Invalid Artist ID.");
-        }
-
-        // Retrieve like document if it exists
-        const like = await Like.findOneAndDelete({ target_type: "Artist", target_id: artistId, user: userId });
-
-        // Retrieve artist document by artistId
-        const artist = await Artist.findById(artistId);
-
-        // Validate artist existence and totalLikes property
-        if (!artist || artist.totalLikes === undefined) {
-            throw new APIError(400, "Artist Doesn't Exist.");
-        }
-
-        // Logic for like/unlike action
-        if (like) {
-            artist.totalLikes -= 1;
-        } else {
-            await Like.create({
-                user: userId,
-                target_type: "Artist",
-                target_id: artistId,
-            });
-            artist.totalLikes += 1;
-        }
-
-        // Save the updated artist
-        await artist.save();
-
-        // Send response back to client
-        res.status(200).json(new APIResponse(
-            200,
-            { totalLikes: artist.totalLikes },
-            "Like Action Performed Successfully."
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route   GET /api/v1/artists/:id/followers-list
-// @desc    Get total followers
-// @access  [Admin, Artist]
-export const getTotalFollowers = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Retrieve the artist ID from request parameters
-        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // Validate artist ID
-        if (!artistId || !mongoose.Types.ObjectId.isValid(artistId)) {
-            throw new APIError(400, 'Invalid Artist ID.');
-        }
-
-        // Find all followers for the specified artist
-        const followers = await Follower.find({ artist: artistId });
-
-        if (!followers)
-            throw new APIError(404, 'No Followers Found For The Secified Artist.');
-
-        // Get total number of followers
-        const totalFollowers = followers.length;
-
-        // Send response with the total number of followers
-        res.status(200).json(new APIResponse(200, { totalFollowers }, "Successfully Fetched Total Followers."));
     } catch (error) {
         next(error);
     }
