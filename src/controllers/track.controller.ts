@@ -1,160 +1,144 @@
 import { NextFunction, Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { APIError } from "../utils/APIError";
-import { Artist } from "../models/artist.model";
 import { uploadToCloudinary } from "../utils/cloudinary";
-import { UploadApiResponse } from "cloudinary";
 import { Track } from "../models/track.model";
 import { APIResponse } from "../utils/APIResponse";
-import mongoose, { Schema, Types } from "mongoose";
+import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
-import { Like } from "../models/like.model";
 
-// @route   POST /api/v1/tracks/add-track
+// @route   POST /api/v1/tracks/
 // @desc    Add Track
 // @access  [Artist, Admin]
 export const addTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?._id;
-
     try {
-        // check user exists or not
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const user_id = req.user?._id;
 
-        // get artistId from Artist collection
-        const artist = await Artist.findOne({ user: userId });
-        if (!artist) throw new APIError(403, "Access denied. Insufficient permission.");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
 
-        const artistId = artist?._id;
+        if (req.user?.role === 'regular') {
+            throw new APIError(403, "Access Denied: Insufficient permission.");
+        }
 
-        // get data from req.body
         const { title, genre, releaseDate, lyrics } = req.body;
 
-        // validate data
-        if ((!title || !genre || !releaseDate) && !lyrics) throw new APIError(400, "Some fields are missing");
+        if ((!title || !genre || !releaseDate) && !lyrics) {
+            throw new APIError(400, "Incomplete Data: Some fields are missing.");
+        }
 
-        // get local cover image path
-        // get local track path
         const { cover_image: [coverImageFile], track: [trackFile] } = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const coverImageLocalPath: string = coverImageFile.path;
-        const trackLocalPath: string = trackFile.path;
-        if (!coverImageLocalPath || !trackLocalPath) throw new APIError(400, "All file are required");
+        const coverImageLocalPath: string = coverImageFile?.path;
+        const trackLocalPath: string = trackFile?.path;
 
-        // upload cover image to cloudinary
-        const coverImageResponse: UploadApiResponse | string = await uploadToCloudinary(coverImageLocalPath, "tracks");
+        if (!coverImageLocalPath || !trackLocalPath) {
+            throw new APIError(400, "Missing Files: Both cover image and track are required.");
+        }
 
-        // validate upload response
-        if (typeof coverImageResponse === 'string') throw new APIError(400, "Cover Image upload failed");
-        const cover_image_url = coverImageResponse.url;
-        const image_public_id = coverImageResponse.public_id;
+        // Use Promise.all for parallel file uploads
+        const [coverImageResponse, trackResponse] = await Promise.all([
+            uploadToCloudinary(coverImageLocalPath, "tracks"),
+            uploadToCloudinary(trackLocalPath, "tracks")
+        ]);
 
-        // upload song to cloudinary
-        const trackResponse: UploadApiResponse | string = await uploadToCloudinary(trackLocalPath, "tracks");
+        if (typeof coverImageResponse === 'string') {
+            throw new APIError(400, "Cover Image Upload Failed.");
+        }
 
-        // validate upload response
-        if (typeof trackResponse === 'string' || !('duration' in trackResponse)) throw new APIError(400, "Track upload failed");
-        const track_url = trackResponse.url;
-        const track_public_id = trackResponse.public_id;
-        const track_duration = trackResponse.duration;
-        // res.json(trackResponse.duration)
+        if (typeof trackResponse === 'string' || !('duration' in trackResponse)) {
+            throw new APIError(400, "Track Upload Failed.");
+        }
 
+        const { url: cover_image_url, public_id: image_public_id } = coverImageResponse;
+        const { url: track_url, public_id: track_public_id, duration: track_duration } = trackResponse;
 
-        // save data in Track collection
         const track = await Track.create({
             title,
             genre,
             releaseDate,
             lyrics,
-            user: userId,
-            artist: artistId,
+            artist: user_id,
             duration: track_duration,
             cover_image: { url: cover_image_url, public_id: image_public_id },
             track: { url: track_url, public_id: track_public_id }
-        })
-        // check for track creation
-        if (!track) throw new APIError(400, "Track add operation failed")
+        });
 
-        // send the result to user
-        res
-            .status(201)
-            .json(new APIResponse(
-                201,
-                track,
-                `Track with id ${track._id} created successfully`
+        if (!track) {
+            throw new APIError(400, "Track Add Operation Failed.");
+        }
 
-            ))
+        res.status(201).json(new APIResponse(
+            201,
+            track,
+            `Track With ID ${track._id} Created Successfully.`
+        ));
     } catch (error) {
         next(error);
     }
-})
+});
 
-// @route   GET /api/v1/tracks/:artistId
-// @desc    Get all tracks
-// @access  Private
-export const getAllTracks = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?._id;
-
+// @route   GET /api/v1/tracks/
+// @desc    Get all tracks of a artist
+// @access  [Regular, Admin, Artist]
+export const getTracks = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // check user exists or not
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const user_id = req.user?._id;
 
-        // get artistId from params
-        const artistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.artistId);
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
 
-        // verify artistId
-        if (!artistId) throw new APIError(400, "Artist id is required");
+        const artist_id = new mongoose.Types.ObjectId(req.body.artist_id);
 
-        // get all track that's are created by this perticular artist
-        const tracks = await Track.find({ artist: artistId });
+        if (!artist_id) {
+            throw new APIError(400, "Invalid Track Id: Artist id is required");
+        }
 
-        // validate response
-        if (!tracks) throw new APIError(400, "Tracks not found");
+        const tracks = await Track.find({ artist: artist_id }).lean();
 
-        // send response to client
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                { total: tracks.length, tracks },
-                "All Tracks fetched Successfully"
-            ))
+        if (!tracks || tracks.length === 0) {
+            throw new APIError(404, "No Tracks Found: No tracks created by this artist.");
+        }
+
+        res.status(200).json(new APIResponse(
+            200,
+            { total: tracks.length, tracks },
+            `All Tracks With Artist ID: ${artist_id} Fetched Successfully.`
+        ));
     } catch (error) {
         next(error);
     }
-})
+});
 
 // @route   GET /api/v1/tracks/:id
 // @desc    Get specific track
-// @access  Private
+// @access  [Regular, Admin, Artist]
 export const getTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?._id;
-
     try {
-        // check user exists or not
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const user_id = req.user?._id;
 
-        // get trackId from params
-        const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
 
-        // validate trackId
-        if (!trackId) throw new APIError(400, "Invalid track ID");
+        const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
 
-        // get track by using trackId
-        const track = await Track.findById(trackId);
+        if (!track_id) {
+            throw new APIError(400, "Invalid Track ID: Track ID is required.");
+        }
 
-        // validate track
-        if (!track) throw new APIError(400, "Track not found");
+        const track = await Track.findById(track_id).lean();
 
-        // send track to client
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                track,
-                `Track with id: ${trackId} fetched successfully`
-            ))
+        if (!track) {
+            throw new APIError(404, "Track Not Found: The requested track does not exist.");
+        }
+
+        res.status(200).json(new APIResponse(
+            200,
+            track,
+            `Track With ID: ${track_id} Fetched Successfully.`
+        ));
     } catch (error) {
         next(error);
     }
@@ -164,141 +148,89 @@ export const getTrack = asyncHandler(async (req: Request, res: Response, next: N
 // @desc    Update track
 // @access  [Admin, Artist]
 export const updateTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user.id
-    const userId: mongoose.Types.ObjectId = req.user?._id;
     try {
-        // check user exists or not
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const user_id = req.user?._id;
 
-        // get trackId from params
-        const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
 
-        // validate trackId
-        if (!trackId) throw new APIError(400, "Invalid track ID");
+        const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
+        if (!mongoose.Types.ObjectId.isValid(track_id)) {
+            throw new APIError(400, "Invalid Track ID: Track ID is required.");
+        }
 
-        // get data from req.body
+        const track = await Track.findById(track_id).lean();
+        if (!track) {
+            throw new APIError(404, "Track Not Found");
+        }
+
         const { title, cover_image, lyrics } = req.body;
 
-        // validate data
-        if (!title && !cover_image && !lyrics) throw new APIError(400, "Atleast one field are required");
+        if (!title && !cover_image && !lyrics) {
+            throw new APIError(400, "Incomplete Data: At least one field is required.");
+        }
 
-        // saved the new data to Track collection
-        const track = await Track.findOneAndUpdate(
-            { _id: trackId },
+        const updatedTrack = await Track.findOneAndUpdate(
+            { _id: track_id },
             { $set: { title, cover_image, lyrics } },
-            { new: true }
-        )
+            { new: true, select: 'title cover_image lyrics' }
+        );
 
-        // check for failure track update operation.
-        if (!track) throw new APIError(400, "Track update operation failed!");
+        if (!updatedTrack) {
+            throw new APIError(400, "Track Update Failed: Unable to update the track.");
+        }
 
-        // send the response to the client
-        res
-            .status(200)
-            .json(new APIResponse(
-                200,
-                track,
-                'Track updated Successfully'
-            ))
+        res.status(200).json(new APIResponse(
+            200,
+            updatedTrack,
+            `Track With ID: ${track_id} Updated Successfully.`
+        ));
     } catch (error) {
         next(error);
     }
 });
 
-// @route   DELETE /api/v1/tracks/:id/remove
-// @desc    Remove track
+// @route   DELETE /api/v1/tracks/:id
+// @desc    Delete track
 // @access  [Admin, Artist]
-export const removeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?._id;
-
+export const deleteTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // validate userId
-        if (!userId) throw new APIError(401, "Invalid request, signin again");
+        const user_id = req.user?._id;
 
-        // get trackId from req.params
-        const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
 
-        // validate trackId
-        if (!trackId) throw new APIError(400, "Invalid trackId");
+        const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
 
-        // get track by using trackId
-        const track = await Track.findById(trackId);
+        if (!mongoose.Types.ObjectId.isValid(track_id)) {
+            throw new APIError(400, "Invalid Track ID: Track ID is not valid.");
+        }
 
-        // validate track
-        if (!track) throw new APIError(400, "Track Not found");
+        const track = await Track.findById(track_id);
 
-        // remove the track
-        await Track.deleteOne(track._id);
+        if (!track) {
+            throw new APIError(404, "Track Not Found: The requested track does not exist.");
+        }
 
-        // extract public_id for cover_image and track
+        if (track.artist.toString() !== user_id.toString() && req.user?.role === 'regular') {
+            throw new APIError(403, "Forbidden: You don't have permission to remove this track.");
+        }
+
+        const removeTrackResult = await Track.deleteOne({ _id: track._id });
+
+        if (removeTrackResult.deletedCount !== 1) {
+            throw new APIError(500, "Internal Server Error: Failed to remove the track.");
+        }
+
         const track_public_id = track.track.public_id;
         const cover_image_public_id = track.cover_image.public_id;
 
-        // remove cloudinary files
         await cloudinary.uploader.destroy(track_public_id);
         await cloudinary.uploader.destroy(cover_image_public_id);
 
-        // send response with 200
-        res.status(200).json(new APIResponse(200, "Track removed successfully"));
-    } catch (error) {
-        next(error);
-    }
-})
-
-// @route   POST /api/v1/tracks/:id/like
-// @desc    Like track
-// @access  [Admin, Artist]
-export const likeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?._id;
-
-    try {
-        // validate user id
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
-        }
-
-        // get trackId from params
-        const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // validate track id
-        if (!trackId) {
-            throw new APIError(400, "Invalid trackId");
-        }
-
-        // retrive like document if exists
-        const like = await Like.findOne({ target_type: "Track", target_id: trackId, user: userId });
-
-        // retrive track document by using trackId
-        const track = await Track.findById(trackId);
-
-        // validate track
-        if (!track || track.totalLikes === undefined) throw new APIError(400, "Track should not be null");
-
-        if (like) { // if already like that track then remove the document and remove 1 like from totalLikes
-            await Like.deleteOne(like._id);
-            track.totalLikes = track.totalLikes - 1;
-        } else { // else create a new document and add 1 like into totalLikes
-            await Like.create({
-                user: userId,
-                target_type: "Track",
-                target_id: trackId,
-            })
-            track.totalLikes = track.totalLikes + 1;
-        }
-
-        // save the track
-        await track.save({ validateBeforeSave: false });
-
-        // retrive the new track
-        const updatedTrack = await Track.findById(trackId);
-
-        // send response back to client
-        res.status(200).json(new APIResponse(
-            200,
-            { totalLikes: updatedTrack?.totalLikes }
-        ));
+        res.status(200).json(new APIResponse(200, {}, `Track With ID: ${track_id} Deleted Successfully.`));
     } catch (error) {
         next(error);
     }
