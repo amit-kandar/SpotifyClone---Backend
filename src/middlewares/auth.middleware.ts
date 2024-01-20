@@ -14,7 +14,7 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
 
         // if token not found send unauthorized user
         if (!token)
-            throw new APIError(401, "Unauthorized Request, signin again");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
 
         // fetch token secret
         const secret: string | undefined = process.env.ACCESS_TOKEN_SECRET;
@@ -24,42 +24,48 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
         // validate access token and store decoded token
         const decoded: JwtPayload | string = jwt.verify(token, secret);
         if (typeof decoded === "string")
-            throw new APIError(400, "Invalid decoded information");
+            throw new APIError(400, "Invalid Decoded Information");
 
         // retrieve the user from redis
-        let userData;
         try {
-            userData = await redisClient.get(`${decoded._id}`);
-        } catch (err) {
-            throw new APIError(500, "Error while fetching details from redis");
+            let userData = await redisClient.get(`${decoded._id}`);
+
+            if (!userData) {
+                let user
+                user = await User.findById(decoded._id).select("-password -refreshToken");
+
+                if (!user) {
+                    throw new APIError(404, "Invalid Authentication Token");
+                }
+
+                user = user.toObject();
+
+                const artist = await Artist.findOne({ user: user._id });
+
+                if (!artist) {
+                    throw new APIError(404, "User is not an artist");
+                }
+
+                const userDetails = {
+                    ...user,
+                    details: { ...artist.toObject() }
+                };
+
+                req.user = userDetails;
+
+                // Cache the user data in Redis for future use
+                await redisClient.setEx(`${decoded._id}`, 3600, JSON.stringify(userDetails));
+            } else {
+                const user = JSON.parse(userData);
+                req.user = user;
+            }
+
+        } catch (error) {
+            next(error);
         }
-        let user;
-        if (!userData) {
-            user = await User.findById(decoded._id).select("-password -refreshToken");
-            if (!user)
-                throw new APIError(404, "Invalid access token");
-        } else {
-            user = JSON.parse(userData);
-        }
 
-        if (user?.role === "artist") {
-            const artist = await Artist.findOne({ user: user._id });
+        logger.info(`Authentication successful for user: ${req.user?.username}`);
 
-            if (!artist)
-                throw new APIError(404, "Invalid access token");
-
-            req.user = {
-                ...user.toObject(),
-                details: { ...artist.toObject() }
-            };
-        } else {
-            req.user = user;
-        }
-
-        //log on successfull authentication
-        logger.info(`Authentication successful for user: ${user?.username}`);
-
-        // call next()
         next();
 
     } catch (error) {
