@@ -12,10 +12,11 @@ import validator from 'validator';
 import { v2 as cloudinary } from "cloudinary";
 import redisClient from "../config/redis";
 import { Artist } from "../models/artist.model";
+import mongoose from "mongoose";
 
-const generateRefreshTokenAndAccessToken = async (userId: string): Promise<{ accessToken: string, refreshToken: string }> => {
+const generateRefreshTokenAndAccessToken = async (user_id: string): Promise<{ accessToken: string, refreshToken: string }> => {
     try {
-        const user: UserDocument | null = await User.findById(userId);
+        const user: UserDocument | null = await User.findById(user_id);
         if (!user)
             throw new APIError(404, "User Not Found");
 
@@ -127,8 +128,10 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             email,
             password,
             date_of_birth,
-            avatar: avatarURL,
-            public_id
+            avatar: {
+                url: avatarURL,
+                public_id: public_id
+            }
         });
 
         const { accessToken, refreshToken } = await generateRefreshTokenAndAccessToken(user._id);
@@ -139,7 +142,7 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
             { new: true, select: "-password -refreshToken" }
         );
 
-        redisClient.setEx(`${user._id}`, 3600, JSON.stringify(updatedUserDetails));
+        await redisClient.setEx(`${user._id}`, 3600, JSON.stringify(updatedUserDetails));
 
         res
             .status(201)
@@ -214,7 +217,7 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
         }
 
         // Store user data in Redis cache
-        redisClient.setEx(`${user._id}`, 3600, JSON.stringify(loggedInUser));
+        await redisClient.setEx(`${user._id}`, 3600, JSON.stringify(loggedInUser));
 
         // Set the refreshToken and accessToken to cookies and send back user
         res
@@ -334,10 +337,10 @@ export const getUserDetails = asyncHandler(async (req: Request, res: Response, n
 // @access  Private
 export const updateUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const user_id = req.user?._id;
 
-        if (!userId) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
         }
 
         const { name, email, date_of_birth } = req.body;
@@ -360,7 +363,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
         }
 
         const updatedUserDetails = await User.findOneAndUpdate(
-            { _id: userId },
+            { _id: user_id },
             { $set: { name: name, email: email, date_of_birth: date_of_birth } },
             { new: true, select: "-password -refreshToken" }
         );
@@ -406,19 +409,23 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
             throw new APIError(400, "Invalid Cloudinary Response");
         }
 
-        const oldPublicId: string = user.public_id;
+        const oldPublicId: string = user.avatar.public_id;
         if (!oldPublicId) {
             throw new APIError(400, "Previous Public Id Not Found");
         }
 
         await cloudinary.uploader.destroy(oldPublicId);
 
-        user.avatar = avatarURL;
-        user.public_id = public_id;
+        // user.avatar = avatarURL;
+        // user.public_id = public_id;
+        user.avatar = {
+            url: avatarURL,
+            public_id: public_id
+        }
 
         const updatedUser = await User.findOneAndUpdate(
             { _id: user._id },
-            { $set: { avatar: avatarURL, public_id: public_id } },
+            { $set: { avatar: { url: avatarURL, public_id: public_id } } },
             { new: true, select: "-password -refreshToken" }
         );
 
