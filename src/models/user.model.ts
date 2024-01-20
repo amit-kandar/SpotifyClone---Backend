@@ -7,7 +7,10 @@ export interface UserDocument extends Document {
     username: string;
     role?: string;
     email: string;
-    avatar: string;
+    avatar: {
+        url: string,
+        public_id: string
+    };
     password: string;
     date_of_birth: Date;
     refreshToken: string;
@@ -31,7 +34,7 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
     },
     role: {
         type: String,
-        enum: ['regular', 'artist', 'admin'], // Example user types
+        enum: ['regular', 'artist', 'admin'],
         default: 'regular'
     },
     email: {
@@ -42,8 +45,14 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
         trim: true,
     },
     avatar: {
-        type: String, // cloudinary url
-        required: true
+        url: {
+            type: String,
+            required: true
+        },
+        public_id: {
+            type: String,
+            required: true
+        }
     },
     password: {
         type: String,
@@ -55,10 +64,6 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
     },
     refreshToken: {
         type: String,
-    },
-    public_id: {
-        type: String,
-        required: true
     }
 }, { timestamps: true });
 
