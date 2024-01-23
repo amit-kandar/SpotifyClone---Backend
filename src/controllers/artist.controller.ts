@@ -302,9 +302,6 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
             }
         ]);
 
-        console.log(artists);
-
-
         if (!artists || !artists.length) {
             throw new APIError(404, "Artists Not Found: No Artists Found.");
         }
