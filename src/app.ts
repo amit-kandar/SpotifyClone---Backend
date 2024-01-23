@@ -30,6 +30,7 @@ import albumRoutes from './routes/album.routes';
 import playlistRoutes from './routes/playlist.routes';
 import searchRoutes from './routes/search.routes';
 import historyRoutes from './routes/history.routes';
+import followRoutes from './routes/follow.routes';
 
 
 // Declare routes
@@ -40,6 +41,7 @@ app.use('/api/v1/albums', albumRoutes);
 app.use('/api/v1/playlists', playlistRoutes);
 app.use('/api/v1/searches', searchRoutes);
 app.use('/api/v1/history', historyRoutes);
+app.use('/api/v1/follow', followRoutes);
 
 app.use(errorHandler);
 
