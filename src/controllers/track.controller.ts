@@ -16,17 +16,17 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         if (req.user?.role === 'regular') {
-            throw new APIError(403, "Access Denied: Insufficient permission.");
+            throw new APIError(403, "Insufficient Permission.");
         }
 
         const { title, genre, releaseDate, lyrics } = req.body;
 
         if ((!title || !genre || !releaseDate) && !lyrics) {
-            throw new APIError(400, "Incomplete Data: Some fields are missing.");
+            throw new APIError(400, "Some Fields Are Missing.");
         }
 
         const { cover_image: [coverImageFile], track: [trackFile] } = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -34,7 +34,7 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
         const trackLocalPath: string = trackFile?.path;
 
         if (!coverImageLocalPath || !trackLocalPath) {
-            throw new APIError(400, "Missing Files: Both cover image and track are required.");
+            throw new APIError(400, "Both Cover Image And Track Are Required.");
         }
 
         // Use Promise.all for parallel file uploads
@@ -72,7 +72,7 @@ export const addTrack = asyncHandler(async (req: Request, res: Response, next: N
         res.status(201).json(new APIResponse(
             201,
             track,
-            `Track With ID ${track._id} Created Successfully.`
+            `Track Created Successfully.`
         ));
     } catch (error) {
         next(error);
@@ -87,25 +87,25 @@ export const getTracks = asyncHandler(async (req: Request, res: Response, next: 
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const artist_id = new mongoose.Types.ObjectId(req.body.artist_id);
 
         if (!artist_id) {
-            throw new APIError(400, "Invalid Track Id: Artist id is required");
+            throw new APIError(400, "Artist ID Is Required");
         }
 
         const tracks = await Track.find({ artist: artist_id }).lean();
 
         if (!tracks || tracks.length === 0) {
-            throw new APIError(404, "No Tracks Found: No tracks created by this artist.");
+            throw new APIError(404, "No Tracks Created By This Artist.");
         }
 
         res.status(200).json(new APIResponse(
             200,
             { total: tracks.length, tracks },
-            `All Tracks With Artist ID: ${artist_id} Fetched Successfully.`
+            "All Tracks Fetched Successfully."
         ));
     } catch (error) {
         next(error);
@@ -120,25 +120,25 @@ export const getTrack = asyncHandler(async (req: Request, res: Response, next: N
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
 
         if (!track_id) {
-            throw new APIError(400, "Invalid Track ID: Track ID is required.");
+            throw new APIError(400, "Track ID Is Required.");
         }
 
         const track = await Track.findById(track_id).lean();
 
         if (!track) {
-            throw new APIError(404, "Track Not Found: The requested track does not exist.");
+            throw new APIError(404, "The Requested Track Does Not Exist.");
         }
 
         res.status(200).json(new APIResponse(
             200,
             track,
-            `Track With ID: ${track_id} Fetched Successfully.`
+            "Track Fetched Successfully."
         ));
     } catch (error) {
         next(error);
@@ -153,12 +153,12 @@ export const updateTrack = asyncHandler(async (req: Request, res: Response, next
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
         if (!mongoose.Types.ObjectId.isValid(track_id)) {
-            throw new APIError(400, "Invalid Track ID: Track ID is required.");
+            throw new APIError(400, "Track ID Is Required.");
         }
 
         const track = await Track.findById(track_id).lean();
@@ -169,7 +169,7 @@ export const updateTrack = asyncHandler(async (req: Request, res: Response, next
         const { title, cover_image, lyrics } = req.body;
 
         if (!title && !cover_image && !lyrics) {
-            throw new APIError(400, "Incomplete Data: At least one field is required.");
+            throw new APIError(400, "At Least One Field Is Required.");
         }
 
         const updatedTrack = await Track.findOneAndUpdate(
@@ -179,13 +179,13 @@ export const updateTrack = asyncHandler(async (req: Request, res: Response, next
         );
 
         if (!updatedTrack) {
-            throw new APIError(400, "Track Update Failed: Unable to update the track.");
+            throw new APIError(400, "Unable To Update The Track.");
         }
 
         res.status(200).json(new APIResponse(
             200,
             updatedTrack,
-            `Track With ID: ${track_id} Updated Successfully.`
+            "Track Updated Successfully."
         ));
     } catch (error) {
         next(error);
@@ -200,29 +200,29 @@ export const deleteTrack = asyncHandler(async (req: Request, res: Response, next
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const track_id = new mongoose.Types.ObjectId(req.params.id || req.body.id);
 
         if (!mongoose.Types.ObjectId.isValid(track_id)) {
-            throw new APIError(400, "Invalid Track ID: Track ID is not valid.");
+            throw new APIError(400, "Track ID Is Not Valid.");
         }
 
         const track = await Track.findById(track_id);
 
         if (!track) {
-            throw new APIError(404, "Track Not Found: The requested track does not exist.");
+            throw new APIError(404, "The Requested Track Does Not Exist.");
         }
 
         if (track.artist.toString() !== user_id.toString() && req.user?.role === 'regular') {
-            throw new APIError(403, "Forbidden: You don't have permission to remove this track.");
+            throw new APIError(403, "You Don't Have Permission To Remove This Track.");
         }
 
         const removeTrackResult = await Track.deleteOne({ _id: track._id });
 
         if (removeTrackResult.deletedCount !== 1) {
-            throw new APIError(500, "Internal Server Error: Failed to remove the track.");
+            throw new APIError(500, "Failed To Remove The Track.");
         }
 
         const track_public_id = track.track.public_id;
@@ -231,7 +231,7 @@ export const deleteTrack = asyncHandler(async (req: Request, res: Response, next
         await cloudinary.uploader.destroy(track_public_id);
         await cloudinary.uploader.destroy(cover_image_public_id);
 
-        res.status(200).json(new APIResponse(200, {}, `Track With ID: ${track_id} Deleted Successfully.`));
+        res.status(200).json(new APIResponse(200, {}, "Track Deleted Successfully."));
     } catch (error) {
         next(error);
     }
@@ -245,7 +245,7 @@ export const likeUnlikeTrack = asyncHandler(async (req: Request, res: Response, 
         const user_id: mongoose.Types.ObjectId = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
