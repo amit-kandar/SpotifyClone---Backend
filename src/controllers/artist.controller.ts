@@ -5,6 +5,7 @@ import { Artist } from "../models/artist.model";
 import { APIResponse } from "../utils/APIResponse";
 import { User } from "../models/user.model";
 import mongoose from "mongoose";
+import redisClient from "../config/redis";
 
 const genres = [
     "rock",
@@ -17,12 +18,12 @@ const genres = [
 // @route   POST /api/v1/artists/
 // @desc    Create artist profile
 // @access  [regular, admin]
-export const createArtistProfile = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         let { genre, bio } = req.body;
@@ -69,11 +70,20 @@ export const createArtistProfile = asyncHandler(async (req: Request, res: Respon
             await session.commitTransaction();
             session.endSession();
 
+            const artist_details = {
+                ...req.user,
+                artist_id: newArtist._id,
+                role: updatedUser.role,
+                genre: newArtist.genre,
+                bio: newArtist.bio,
+                totalLikes: newArtist.totalLikes
+            }
+
             res
                 .status(201)
                 .clearCookie("accessToken", { httpOnly: true, secure: true })
                 .clearCookie("refreshToken", { httpOnly: true, secure: true })
-                .json(new APIResponse(201, { artist: newArtist }, "Artist Profile Created Successfully. Please Sign in Again."));
+                .json(new APIResponse(201, { artist: artist_details }, "Artist Profile Created Successfully. Please Sign in Again."));
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
@@ -95,8 +105,9 @@ export const updateArtist = asyncHandler(async (req: Request, res: Response, nex
         const { genre, bio } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
+
         if (!mongoose.Types.ObjectId.isValid(artist_id)) {
             throw new APIError(400, "Invalid Artist ID");
         }
@@ -104,39 +115,41 @@ export const updateArtist = asyncHandler(async (req: Request, res: Response, nex
         const artist = await Artist.findById(artist_id).lean();
 
         if (!artist) {
-            throw new APIError(404, "Artist Not Found: The Requested Artist Does Not Exist.");
+            throw new APIError(404, "The Requested Artist Does Not Exist.");
         }
 
         const isUserAuthorized = (artist.user)?.toString() === user_id.toString();
         if (!isUserAuthorized) {
-            throw new APIError(403, "Permission Denied: You Don't Have The Required Permissions To Perform This Action.");
+            throw new APIError(403, "You Don't Have The Required Permissions To Perform This Action.");
         }
 
         if (!genre && !bio) {
-            throw new APIError(400, "Validation Error: At Least One Field (genre or bio) Should Be Provided.");
-        }
-
-        const updateFields: Record<string, any> = {};
-        if (genre) {
-            updateFields.genre = genre;
-        }
-        if (bio) {
-            updateFields.bio = bio;
+            throw new APIError(400, "At Least One Field (genre or bio) Should Be Provided.");
         }
 
         const updatedArtistDetails = await Artist.findOneAndUpdate(
             { _id: artist_id },
-            { $set: updateFields },
+            { $set: { genre: genre, bio: bio } },
             { new: true }
         ).lean();
 
         if (!updatedArtistDetails) {
-            throw new APIError(404, 'Update Failed: Unable To Find Updated Artist Details.');
+            throw new APIError(404, 'Unable To Find Updated Artist Details.');
         }
+
+        const user = req.user;
+        if (genre) {
+            user.genre = genre;
+        }
+        if (bio) {
+            user.bio = bio;
+        }
+
+        await redisClient.set(`${user_id}`, JSON.stringify(user));
 
         res.status(200).json(new APIResponse(
             200,
-            { Artist: updatedArtistDetails },
+            { Artist: user },
             "Artist Updated Successfully."
         ));
 
@@ -148,45 +161,68 @@ export const updateArtist = asyncHandler(async (req: Request, res: Response, nex
 // @route   GET /api/v1/artsists/:id
 // @desc    Get artist by id
 // @access  [artist, admin, regular]
-// have to check when user_id and artist model user are not same
 export const getArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
-
         const artist_id = new mongoose.Types.ObjectId(req.params.id);
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         if (!mongoose.Types.ObjectId.isValid(artist_id)) {
-            throw new APIError(404, "Artist Not Found: No Artist ID Provided.");
+            throw new APIError(400, "Invalid Artist ID");
         }
 
         const artist = await Artist.aggregate([
-            { $match: { _id: artist_id } },
+            {
+                $match: { _id: artist_id }
+            },
             {
                 $lookup: {
                     from: "users",
                     localField: "user",
                     foreignField: "_id",
-                    as: "creator"
+                    as: "userDetails"
                 }
             },
             {
-                $lookup: {
-                    from: "songs",
-                    localField: "_id",
-                    foreignField: "artist",
-                    as: "songs"
-                }
+                $addFields: {
+                    mergedObject: {
+                        $mergeObjects: [
+                            { $arrayElemAt: ["$userDetails", 0] },
+                            "$$ROOT"
+                        ]
+                    }
+                },
             },
-            { $unwind: { path: "$creator" } },
-            { $unwind: { path: "$songs", preserveNullAndEmptyArrays: true } },
+            {
+                $replaceRoot: { newRoot: "$mergedObject" }
+            },
             {
                 $project: {
-                    "creator.password": 0,
-                    "creator.refreshToken": 0,
+                    "userDetails": 0,
+                    "refreshToken": 0,
+                    "password": 0
+                }
+            },
+            {
+                $project: {
+                    _id: "$user",
+                    artist_id: "$_id",
+                    name: "$name",
+                    username: "$username",
+                    role: "$role",
+                    email: "$email",
+                    date_of_birth: "$date_of_birth",
+                    genre: "$genre",
+                    bio: "$bio",
+                    totalLikes: "$totalLikes",
+                    avatar: {
+                        url: "$avatar.url",
+                        public_id: "$avatar.public_id",
+                        _id: "$avatar._id"
+                    }
                 }
             }
         ]);
@@ -213,7 +249,7 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const artists = await Artist.aggregate([
@@ -222,22 +258,52 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
                     from: "users",
                     localField: "user",
                     foreignField: "_id",
-                    as: "details"
+                    as: "userDetails"
+                }
+            },
+            {
+                $addFields: {
+                    mergedObject: {
+                        $mergeObjects: [
+                            { $arrayElemAt: ["$userDetails", 0] },
+                            "$$ROOT"
+                        ]
+                    }
+                },
+            },
+            {
+                $replaceRoot: { newRoot: "$mergedObject" }
+            },
+            {
+                $project: {
+                    "userDetails": 0,
+                    "refreshToken": 0,
+                    "password": 0
                 }
             },
             {
                 $project: {
-                    createdAt: 0,
-                    updatedAt: 0,
-                    __v: 0,
-                    "details.createdAt": 0,
-                    "details.updatedAt": 0,
-                    "details.__v": 0,
-                    "details.password": 0,
-                    "details.refreshToken": 0
+                    _id: "$user",
+                    artist_id: "$_id",
+                    name: "$name",
+                    username: "$username",
+                    role: "$role",
+                    email: "$email",
+                    date_of_birth: "$date_of_birth",
+                    genre: "$genre",
+                    bio: "$bio",
+                    totalLikes: "$totalLikes",
+                    avatar: {
+                        url: "$avatar.url",
+                        public_id: "$avatar.public_id",
+                        _id: "$avatar._id"
+                    }
                 }
             }
         ]);
+
+        console.log(artists);
+
 
         if (!artists || !artists.length) {
             throw new APIError(404, "Artists Not Found: No Artists Found.");
@@ -245,7 +311,7 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
 
         res.status(200).json(new APIResponse(
             200,
-            { Artists: artists },
+            { total: artists.length, Artists: artists },
             "Artists Fetched Successfully."
         ));
     } catch (error) {
