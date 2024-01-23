@@ -45,14 +45,11 @@ const UserSchema = new Schema<UserDocument, Model<UserDocument>>({
         trim: true,
     },
     avatar: {
-        url: {
-            type: String,
-            required: true
+        type: {
+            url: { type: String, required: true },
+            public_id: { type: String, required: true }
         },
-        public_id: {
-            type: String,
-            required: true
-        }
+        required: true
     },
     password: {
         type: String,
