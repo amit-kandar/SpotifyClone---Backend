@@ -6,6 +6,7 @@ import { Track } from "../models/track.model";
 import { APIResponse } from "../utils/APIResponse";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
+import { Like } from "../models/like.model";
 
 // @route   POST /api/v1/tracks/
 // @desc    Add Track
@@ -231,6 +232,60 @@ export const deleteTrack = asyncHandler(async (req: Request, res: Response, next
         await cloudinary.uploader.destroy(cover_image_public_id);
 
         res.status(200).json(new APIResponse(200, {}, `Track With ID: ${track_id} Deleted Successfully.`));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route   POST /api/v1/tracks/:id/like
+// @desc    Like or Unlike track
+// @access  [Regular, Admin, Artist]
+export const likeUnlikeTrack = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id: mongoose.Types.ObjectId = req.user?._id;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized: Please sign in again.");
+        }
+
+        const trackId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+        if (!mongoose.Types.ObjectId.isValid(trackId)) {
+            throw new APIError(400, "Invalid TrackId");
+        }
+
+        const track = await Track.findById(trackId);
+        if (!track) {
+            throw new APIError(404, "Track Doesn't Exists")
+        }
+
+        const like = await Like.findOne({ target_type: "Track", target_id: trackId, user: user_id });
+
+        let message: string;
+
+        if (like) { // if already like that track then remove the document and remove 1 like from totalLikes
+            await Like.deleteOne(like._id);
+            track.totalLikes -= 1;
+            message = "Successfully Unlike The Track";
+        } else { // else create a new document and add 1 like into totalLikes
+            await Like.create({
+                user: user_id,
+                target_type: "Track",
+                target_id: trackId,
+            })
+            track.totalLikes += 1;
+            message = "Successfully Like The Track";
+        }
+
+        await track.save();
+
+        const updatedTrack = await Track.findById(trackId);
+
+        res.status(200).json(new APIResponse(
+            200,
+            { totalLikes: updatedTrack?.totalLikes },
+            message
+        ));
     } catch (error) {
         next(error);
     }

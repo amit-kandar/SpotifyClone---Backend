@@ -6,6 +6,7 @@ import { APIResponse } from "../utils/APIResponse";
 import { User } from "../models/user.model";
 import mongoose from "mongoose";
 import redisClient from "../config/redis";
+import { Like } from "../models/like.model";
 
 const genres = [
     "rock",
@@ -310,6 +311,60 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
             200,
             { total: artists.length, Artists: artists },
             "Artists Fetched Successfully."
+        ));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route   POST /api/v1/artists/:id/like
+// @desc    Like or Unlike artist
+// @access  [Admin, Artist, Regular]
+export const likeUnlikeArtist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user?._id;
+        const artist_id = new mongoose.Types.ObjectId(req.params.id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(artist_id)) {
+            throw new APIError(400, "Invalid Artist ID.");
+        }
+
+        const artist = await Artist.findById(artist_id);
+
+        if (!artist) {
+            throw new APIError(400, "Artist Doesn't Exists.");
+        }
+
+        const like = await Like.findOneAndDelete({ target_type: "Artist", target_id: artist_id, user: user_id });
+
+        let message: string;
+
+        if (like) {
+            await Like.deleteOne(like._id);
+            artist.totalLikes -= 1;
+            message = "Successfully Unlike The Artist";
+        } else {
+            await Like.create({
+                user: user_id,
+                target_type: "Artist",
+                target_id: artist_id,
+            });
+            artist.totalLikes += 1;
+            message = "Successfully Like The Artist";
+        }
+
+        await artist.save();
+
+        const updatedArtist = await Artist.findById(artist_id);
+
+        res.status(200).json(new APIResponse(
+            200,
+            { totalLikes: updatedArtist?.totalLikes },
+            message
         ));
     } catch (error) {
         next(error);
