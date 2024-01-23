@@ -2,6 +2,7 @@ import logger from "../config/logger";
 import redisClient from "../config/redis";
 import { Artist } from "../models/artist.model";
 import { User } from "../models/user.model";
+import { RequestDocument } from "../types/express";
 import { APIError } from "../utils/APIError";
 import { asyncHandler } from "../utils/asyncHandler";
 import { Request, Response, NextFunction } from "express";
@@ -40,21 +41,40 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
 
                 user = user.toObject();
 
-                const artist = await Artist.findOne({ user: user._id });
+                if (user.role === 'artist') {
+                    const artist = await Artist.findOne({ user: user._id });
 
-                if (!artist) {
-                    throw new APIError(404, "User is not an artist");
+                    if (!artist) {
+                        throw new APIError(404, "User is not an artist");
+                    }
+
+                    const userDetails = {
+                        ...user,
+                        ...artist.toObject()
+                    };
+
+                    const newUserDetails: RequestDocument = {
+                        _id: userDetails.user,
+                        artist_id: userDetails._id,
+                        name: userDetails.name,
+                        username: userDetails.username,
+                        role: userDetails.role,
+                        email: userDetails.email,
+                        date_of_birth: userDetails.date_of_birth,
+                        genre: userDetails.genre,
+                        bio: userDetails.bio,
+                        totalLikes: userDetails.totalLikes,
+                        avatar: {
+                            url: userDetails.avatar.url,
+                            public_id: userDetails.avatar.public_id
+                        }
+                    }
+
+                    req.user = newUserDetails;
+                    await redisClient.setEx(`${decoded._id}`, 3600, JSON.stringify(newUserDetails));
+                } else {
+                    req.user = user;
                 }
-
-                const userDetails = {
-                    ...user,
-                    details: { ...artist.toObject() }
-                };
-
-                req.user = userDetails;
-
-                // Cache the user data in Redis for future use
-                await redisClient.setEx(`${decoded._id}`, 3600, JSON.stringify(userDetails));
             } else {
                 const user = JSON.parse(userData);
                 req.user = user;
@@ -64,11 +84,11 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
             next(error);
         }
 
-        logger.info(`Authentication successful for user: ${req.user?.username}`);
-
-        next();
-
     } catch (error) {
         next(error);
     }
+
+    logger.info(`Authentication successful for user: ${req.user?.username}`);
+
+    next();
 });

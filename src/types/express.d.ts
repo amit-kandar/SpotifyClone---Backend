@@ -1,12 +1,27 @@
-// Import necessary types from 'express'
 import { Request } from 'express';
-import { UserDocument } from '../models/user.model';
+import { Document, Schema, model, Model, Types } from "mongoose";
+export interface RequestDocument {
+    _id: Types.ObjectId
+    artist_id: Types.ObjectId
+    name: string;
+    username: string;
+    role: string;
+    email: string;
+    avatar: {
+        url: string,
+        public_id: string
+    };
+    date_of_birth: Date;
+    genre: string;
+    bio: string;
+    totalLikes: number;
 
-// Augment the 'express' Request type definition to include the 'user' property
+}
+
 declare global {
     namespace Express {
         interface Request {
-            user?: UserDocument; // Define 'user' property
+            user: RequestDocument;
         }
     }
 }
