@@ -1,6 +1,6 @@
 import { APIError } from "../utils/APIError";
 import { asyncHandler } from "../utils/asyncHandler";
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response, json } from "express";
 import { User, UserDocument } from "../models/user.model";
 import { uploadToCloudinary } from "../utils/cloudinary";
 import { UploadApiResponse } from "cloudinary";
@@ -156,7 +156,7 @@ export const signup = asyncHandler(async (req: Request, res: Response, next: Nex
                         accessToken,
                         refreshToken
                     },
-                    "User Created Successfully"
+                    "User Registered Successfully"
                 )
             );
     } catch (error) {
@@ -211,7 +211,23 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
         let loggedInUser;
         if (newUser?.role === 'artist') {
             const artist = await Artist.findOne({ user: newUser._id });
-            loggedInUser = { ...newUser.toObject(), details: { ...artist?.toObject() } };
+            loggedInUser = { ...newUser.toObject(), ...artist?.toObject() };
+            loggedInUser = {
+                _id: loggedInUser.user,
+                artist_id: loggedInUser._id,
+                name: loggedInUser.name,
+                username: loggedInUser.username,
+                role: loggedInUser.role,
+                email: loggedInUser.email,
+                date_of_birth: loggedInUser.date_of_birth,
+                genre: loggedInUser.genre,
+                bio: loggedInUser.bio,
+                totalLikes: loggedInUser.totalLikes,
+                avatar: {
+                    url: loggedInUser.avatar.url,
+                    public_id: loggedInUser.avatar.public_id
+                }
+            }
         } else {
             loggedInUser = newUser;
         }
@@ -244,7 +260,7 @@ export const signin = asyncHandler(async (req: Request, res: Response, next: Nex
 export const signout = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         if (!req.user) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         await User.findByIdAndUpdate(
@@ -316,15 +332,15 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
 // @access  Private
 export const getUserDetails = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userDetails = req.user;
+        const user = req.user;
 
-        if (!userDetails) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!user) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         res.status(200).json(new APIResponse(
             200,
-            userDetails,
+            user,
             "Successfully Fetched User Details"
         ));
     } catch (error) {
@@ -340,7 +356,7 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
         const user_id = req.user?._id;
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized: Please sign in again.");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const { name, email, date_of_birth } = req.body;
@@ -354,8 +370,15 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
             throw new APIError(400, "Invalid Date Of Birth");
         }
 
-        if (!validator.isEmail(email)) {
-            throw new APIError(400, "Invalid Email");
+        // Check if the email exists in the database
+        if (email) {
+            if (!validator.isEmail(email)) {
+                throw new APIError(400, "Invalid Email");
+            }
+            const userWithEmail = await User.findOne({ email }).lean();
+            if (userWithEmail) {
+                throw new APIError(400, "Email Already In Use");
+            }
         }
 
         if (user?.name === name || user?.email === email || user?.date_of_birth === date_of_birth) {
@@ -371,6 +394,18 @@ export const updateUserDetails = asyncHandler(async (req: Request, res: Response
         if (!updatedUserDetails) {
             throw new APIError(404, 'User Details Were Not Updated Or Not Found');
         }
+
+        if (name) {
+            user.name = name;
+        }
+        if (email) {
+            user.email = email;
+        }
+        if (date_of_birth) {
+            user.date_of_birth = date_of_birth;
+        }
+
+        await redisClient.set(`${user_id}`, JSON.stringify(user))
 
         res.status(200).json(new APIResponse(
             200,
@@ -389,7 +424,7 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
     try {
         const user = req.user;
         if (!user) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         if (!req.file?.path) {
@@ -414,22 +449,23 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
             throw new APIError(400, "Previous Public Id Not Found");
         }
 
-        await cloudinary.uploader.destroy(oldPublicId);
-
-        // user.avatar = avatarURL;
-        // user.public_id = public_id;
-        user.avatar = {
-            url: avatarURL,
-            public_id: public_id
-        }
+        const data = await cloudinary.uploader.destroy(oldPublicId);
 
         const updatedUser = await User.findOneAndUpdate(
             { _id: user._id },
             { $set: { avatar: { url: avatarURL, public_id: public_id } } },
             { new: true, select: "-password -refreshToken" }
         );
+        if (!updatedUser) {
+            throw new APIError(400, "Failed to update the user");
+        }
 
-        res.status(200).json(new APIResponse(200, updatedUser, "Avatar Updated Successfully"));
+        user.avatar.url = updatedUser.avatar.url
+        user.avatar.public_id = updatedUser.avatar.public_id
+
+        await redisClient.set(`${user._id}`, JSON.stringify(user));
+
+        res.status(200).json(new APIResponse(200, user, "Avatar Updated Successfully"));
     } catch (error) {
         next(error);
     }
@@ -440,26 +476,30 @@ export const changeAvatar = asyncHandler(async (req: Request, res: Response, nex
 // @access  Private
 export const changePassword = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const user = req.user;
+        const user_id = req.user?._id;
 
-        if (!user) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        const { password, newPassword } = req.body;
+        const { current_password, new_password } = req.body;
 
-        const isCorrectPassword = await user.isCorrectPassword(password);
+        const user = await User.findById(user_id);
+        if (!user) {
+            throw new APIError(404, "User Not Found");
+        }
+
+        const isCorrectPassword = await user.isCorrectPassword(current_password);
 
         if (!isCorrectPassword) {
-            throw new APIError(400, "Incorrect Password");
+            throw new APIError(400, "Incorrect Current Password");
         }
 
-        await User.updateOne(
-            { _id: user._id },
-            { $set: { password: newPassword } }
-        );
+        user.password = new_password;
 
-        res.status(200).json(new APIResponse(200, null, "Password Changed Successfully"));
+        await user.save();
+
+        res.status(200).json(new APIResponse(200, {}, "Password Changed Successfully"));
     } catch (error) {
         next(error);
     }
@@ -473,7 +513,7 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response, ne
         const user = req.user;
 
         if (!user) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const { password } = req.body;
@@ -483,7 +523,7 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response, ne
             { $set: { password: password } },
         );
 
-        res.status(200).json(new APIResponse(200, "Password Reset Successful"));
+        res.status(200).json(new APIResponse(200, {}, "Password Reset Successful"));
     } catch (error) {
         next(error);
     }

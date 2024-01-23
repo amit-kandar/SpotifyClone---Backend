@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 export interface UserDocument extends Document {
     name: string;
     username: string;
-    role?: string;
+    role: string;
     email: string;
     avatar: {
         url: string,
@@ -14,7 +14,6 @@ export interface UserDocument extends Document {
     password: string;
     date_of_birth: Date;
     refreshToken: string;
-    public_id: string;
     isCorrectPassword(password: string): Promise<boolean>;
     generateAccessToken(): Promise<string>;
     generateRefreshToken(): Promise<string>;
