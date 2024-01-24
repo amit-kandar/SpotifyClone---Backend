@@ -351,7 +351,6 @@ export const likeUnlikeAlbum = asyncHandler(async (req: Request, res: Response, 
         }
 
         const like = await Like.findOne({ target_type: "Album", target_id: album_id, user: user_id }).lean();
-        console.log(like);
 
         let message: string;
 
