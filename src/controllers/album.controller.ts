@@ -2,7 +2,6 @@ import { Response, Request, NextFunction } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import mongoose from "mongoose";
 import { APIError } from "../utils/APIError";
-import { Artist } from "../models/artist.model";
 import { Album } from "../models/album.model";
 import { uploadToCloudinary } from "../utils/cloudinary";
 import { UploadApiResponse } from "cloudinary";
