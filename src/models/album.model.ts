@@ -9,7 +9,7 @@ interface albumDocument extends Document {
     };
     artist: Schema.Types.ObjectId;
     tracks: [Schema.Types.ObjectId];
-    totalLikes: number;
+    total_likes: number;
 }
 
 const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
@@ -39,7 +39,7 @@ const AlbumSchema = new Schema<albumDocument, Model<albumDocument>>({
         type: Schema.Types.ObjectId,
         ref: "Tracks"
     }],
-    totalLikes: {
+    total_likes: {
         type: Number,
         default: 0
     }

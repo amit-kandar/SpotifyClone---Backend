@@ -77,7 +77,7 @@ export const createArtist = asyncHandler(async (req: Request, res: Response, nex
                 role: updatedUser.role,
                 genre: newArtist.genre,
                 bio: newArtist.bio,
-                totalLikes: newArtist.totalLikes
+                total_likes: newArtist.total_likes
             }
 
             res
@@ -218,7 +218,7 @@ export const getArtist = asyncHandler(async (req: Request, res: Response, next: 
                     date_of_birth: "$date_of_birth",
                     genre: "$genre",
                     bio: "$bio",
-                    totalLikes: "$totalLikes",
+                    total_likes: "$total_likes",
                     avatar: {
                         url: "$avatar.url",
                         public_id: "$avatar.public_id",
@@ -293,7 +293,7 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
                     date_of_birth: "$date_of_birth",
                     genre: "$genre",
                     bio: "$bio",
-                    totalLikes: "$totalLikes",
+                    total_likes: "$total_likes",
                     avatar: {
                         url: "$avatar.url",
                         public_id: "$avatar.public_id",
@@ -345,7 +345,7 @@ export const likeUnlikeArtist = asyncHandler(async (req: Request, res: Response,
 
         if (like) {
             await Like.deleteOne(like._id);
-            artist.totalLikes -= 1;
+            artist.total_likes -= 1;
             message = "Successfully Unlike The Artist";
         } else {
             await Like.create({
@@ -353,7 +353,7 @@ export const likeUnlikeArtist = asyncHandler(async (req: Request, res: Response,
                 target_type: "Artist",
                 target_id: artist_id,
             });
-            artist.totalLikes += 1;
+            artist.total_likes += 1;
             message = "Successfully Like The Artist";
         }
 
@@ -363,7 +363,7 @@ export const likeUnlikeArtist = asyncHandler(async (req: Request, res: Response,
 
         res.status(200).json(new APIResponse(
             200,
-            { totalLikes: updatedArtist?.totalLikes },
+            { total_likes: updatedArtist?.total_likes },
             message
         ));
     } catch (error) {

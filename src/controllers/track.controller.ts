@@ -263,17 +263,17 @@ export const likeUnlikeTrack = asyncHandler(async (req: Request, res: Response, 
 
         let message: string;
 
-        if (like) { // if already like that track then remove the document and remove 1 like from totalLikes
+        if (like) { // if already like that track then remove the document and remove 1 like from total_likes
             await Like.deleteOne(like._id);
-            track.totalLikes -= 1;
+            track.total_likes -= 1;
             message = "Successfully Unlike The Track";
-        } else { // else create a new document and add 1 like into totalLikes
+        } else { // else create a new document and add 1 like into total_likes
             await Like.create({
                 user: user_id,
                 target_type: "Track",
                 target_id: trackId,
             })
-            track.totalLikes += 1;
+            track.total_likes += 1;
             message = "Successfully Like The Track";
         }
 
@@ -283,7 +283,7 @@ export const likeUnlikeTrack = asyncHandler(async (req: Request, res: Response, 
 
         res.status(200).json(new APIResponse(
             200,
-            { totalLikes: updatedTrack?.totalLikes },
+            { total_likes: updatedTrack?.total_likes },
             message
         ));
     } catch (error) {

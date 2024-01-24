@@ -15,7 +15,7 @@ interface trackDocument extends Document {
     genre: string;
     lyrics: string;
     releaseDate: Date;
-    totalLikes: number;
+    total_likes: number;
 }
 
 const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
@@ -61,7 +61,7 @@ const TrackSchema = new Schema<trackDocument, Model<trackDocument>>({
         type: String,
         default: ""
     },
-    totalLikes: {
+    total_likes: {
         type: Number,
         default: 0
     }

@@ -63,7 +63,7 @@ export const checkAuth = asyncHandler(async (req: Request, res: Response, next: 
                         date_of_birth: userDetails.date_of_birth,
                         genre: userDetails.genre,
                         bio: userDetails.bio,
-                        totalLikes: userDetails.totalLikes,
+                        total_likes: userDetails.total_likes,
                         avatar: {
                             url: userDetails.avatar.url,
                             public_id: userDetails.avatar.public_id

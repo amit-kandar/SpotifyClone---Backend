@@ -354,17 +354,17 @@ export const likeUnlikeAlbum = asyncHandler(async (req: Request, res: Response, 
 
         let message: string;
 
-        if (like) { // if already like that album then remove the document and remove 1 like from totalLikes
+        if (like) { // if already like that album then remove the document and remove 1 like from total_likes
             await Like.deleteOne(like._id);
-            album.totalLikes -= 1;
+            album.total_likes -= 1;
             message = "Successfully Unlike The Album";
-        } else { // else create a new document and add 1 like into totalLikes
+        } else { // else create a new document and add 1 like into total_likes
             await Like.create({
                 user: user_id,
                 target_type: "Album",
                 target_id: album_id,
             });
-            album.totalLikes += 1;
+            album.total_likes += 1;
             message = "Successfully Like The Album";
         }
 
@@ -372,7 +372,7 @@ export const likeUnlikeAlbum = asyncHandler(async (req: Request, res: Response, 
         const updatedAlbum = await Album.findById(album_id);
         res.status(200).json(new APIResponse(
             200,
-            { totalLikes: updatedAlbum?.totalLikes },
+            { total_likes: updatedAlbum?.total_likes },
             message
         ));
     } catch (error) {

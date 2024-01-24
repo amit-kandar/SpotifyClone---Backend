@@ -4,7 +4,7 @@ interface ArtistDocument extends Document {
     user: Schema.Types.ObjectId;
     genre: string;
     bio: string;
-    totalLikes: number;
+    total_likes: number;
 }
 
 const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
@@ -24,7 +24,7 @@ const ArtistSchema = new Schema<ArtistDocument, Model<ArtistDocument>>({
         required: true,
         trim: true
     },
-    totalLikes: {
+    total_likes: {
         type: Number,
         default: 0
     }

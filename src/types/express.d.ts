@@ -14,7 +14,7 @@ export interface RequestDocument {
     date_of_birth: Date;
     genre: string;
     bio: string;
-    totalLikes: number;
+    total_likes: number;
 
 }
 
