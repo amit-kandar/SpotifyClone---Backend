@@ -7,59 +7,47 @@ import { UploadApiResponse } from "cloudinary";
 import { APIResponse } from "../utils/APIResponse";
 import { Like } from "../models/like.model";
 import { Playlist } from "../models/playlist.model";
+import { Track } from "../models/track.model";
 
-// @route POST /api/v1/playlists/create
+// @route POST /api/v1/playlists/
 // @desc Create new playlist
 // @access [Artist, Admin, Regular]
 export const createPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Get data from req.body
         const { name } = req.body;
 
-        // Validate required data
         if (!name) {
-            throw new APIError(400, "Name is required to create a playlist");
+            throw new APIError(400, "Name Is Required");
         }
 
-        // get image local path
-        let cover_image_local_path: string | undefined;
-
-        if (!req.file?.path) {
-            cover_image_local_path = "public/assets/default.jpg";
-        } else {
-            cover_image_local_path = req.file.path;
-        }
+        const cover_image_local_path = req.file?.path || "public/assets/default.jpg";
 
         const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path, "playlists");
-        if (typeof cover_image_response !== 'object' && !cover_image_response.hasOwnProperty('url')) {
-            throw new APIError(400, "Invalid cover_image_response data");
+        if (typeof cover_image_response !== 'object' || !('url' in cover_image_response)) {
+            throw new APIError(400, "Failed To Upload Cover Image");
         }
-        const cover_image_url = (cover_image_response as UploadApiResponse).url;
-        const public_id = (cover_image_response as UploadApiResponse).public_id;
 
-        // Create a new playlist
+        const { url: cover_image_url, public_id } = cover_image_response as UploadApiResponse;
+
         const playlist = await Playlist.create({
             name,
             cover_image: {
                 url: cover_image_url,
                 public_id
             },
-            user: userId
+            owner: user_id
         });
 
-        // Send response with the created playlist
         res.status(201).json(new APIResponse(
             201,
             playlist,
-            "Playlist created successfully",
+            "Playlist Created Successfully",
         ));
     } catch (error) {
         next(error);
@@ -71,57 +59,53 @@ export const createPlaylist = asyncHandler(async (req: Request, res: Response, n
 // @access [Artist, Admin, Regular]
 export const addTrackToPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { track_id } = req.body;
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Get playlist ID from request parameters
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // Validate playlist ID
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlist ID");
+        if (!mongoose.Types.ObjectId.isValid(track_id)) {
+            throw new APIError(400, "Track ID is Required");
         }
 
-        // Get the playlist by ID
-        const playlist = await Playlist.findById(playlistId);
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
+        }
 
-        // Check if the playlist exists
+        const track = await Track.findById(track_id).lean();
+        if (!track) {
+            throw new APIError(400, "Track Doesn't Exists");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+
         if (!playlist) {
-            throw new APIError(404, "Playlist not found");
+            throw new APIError(404, "Playlist Not Found");
         }
 
-        // Check if the current user is authorized to modify this playlist
-        if (playlist.user.toString() !== userId.toString()) {
-            throw new APIError(403, "You don't have permission to modify this playlist");
+        if (playlist.owner.toString() !== user_id.toString()) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
         }
 
-        // Get the track ID to add to the playlist from request body
-        const { trackId } = req.body;
-
-        // Validate track ID
-        if (!trackId) {
-            throw new APIError(400, "Track ID is required");
+        if (playlist.tracks.includes(track_id)) {
+            throw new APIError(400, "Track Already Exists in the Playlist");
         }
 
-        // Check if the track already exists in the playlist
-        if (playlist.track.includes(trackId)) {
-            throw new APIError(400, "Track already exists in the playlist");
+        playlist.tracks.push(track_id);
+
+        const updatedPlalist = await playlist.save();
+
+        if (!updatedPlalist) {
+            throw new APIError(400, "Failed To Add The Track To The Playlist");
         }
 
-        // Add the track to the playlist
-        playlist.track.push(trackId);
-        await playlist.save();
-
-        // Send response with updated playlist
         res.status(200).json(new APIResponse(
             200,
-            playlist,
-            "Track added to playlist successfully",
+            { playlist: updatedPlalist },
+            "Track Added To The Playlist Successfully",
         ));
     } catch (error) {
         next(error);
@@ -133,66 +117,60 @@ export const addTrackToPlaylist = asyncHandler(async (req: Request, res: Respons
 // @access [Artist, Admin, Regular]
 export const updatePlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
-        }
-
-        // Get playlist ID from request parameters
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // Validate playlist ID
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlist ID");
-        }
-
-        // Find the playlist by ID
-        const playlist = await Playlist.findById(playlistId);
-
-        // Check if the playlist exists
-        if (!playlist) {
-            throw new APIError(404, "Playlist not found");
-        }
-
-        // Check if the current user is authorized to modify this playlist
-        if (playlist.user.toString() !== userId.toString()) {
-            throw new APIError(403, "You don't have permission to modify this playlist");
-        }
-
-        // Get updated details from request body
         const { name } = req.body;
+        const cover_image_local_path = req.file?.path;
 
-        // Validate and update playlist name
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
+        }
+
+        if (!name && cover_image_local_path) {
+            throw new APIError(400, "Atleast One Field Is Required");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+
+        if (!playlist) {
+            throw new APIError(404, "Failed To Retrive The Playlist");
+        }
+
+        if (playlist.owner.toString() !== user_id.toString()) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Modify This Playlist");
+        }
+
         if (name) {
             playlist.name = name;
         }
 
-        // Check if a new cover image is uploaded
-        if (req.file?.path) {
-            const cover_image_local_path: string = req.file.path;
+        if (cover_image_local_path) {
             const cover_image_response: UploadApiResponse | string = await uploadToCloudinary(cover_image_local_path, "playlists");
 
-            if (typeof cover_image_response === 'object' && cover_image_response.hasOwnProperty('url')) {
-                const cover_image_url = (cover_image_response as UploadApiResponse).url;
-                const public_id = (cover_image_response as UploadApiResponse).public_id;
-                playlist.cover_image.url = cover_image_url;
-                playlist.cover_image.public_id = public_id;
-            } else {
-                throw new APIError(400, "Invalid cover image data");
+            if (typeof cover_image_response !== 'object' || !('url' in cover_image_response)) {
+                throw new APIError(400, "Failed To Upload Cover Image");
             }
+
+            const { url: cover_image_url, public_id } = cover_image_response as UploadApiResponse;
+
+            playlist.cover_image.url = cover_image_url;
+            playlist.cover_image.public_id = public_id;
         }
 
-        // Save the updated playlist
-        await playlist.save();
+        const updatedPlaylist = await playlist.save();
+        if (!updatedPlaylist) {
+            throw new APIError(400, "Failed To Update The Playlist");
+        }
 
-        // Send response with updated playlist
         res.status(200).json(new APIResponse(
             200,
-            playlist,
-            "Playlist updated successfully",
+            { playlist: updatedPlaylist },
+            "Playlist Updated Successfully",
         ));
     } catch (error) {
         next(error);
@@ -202,56 +180,55 @@ export const updatePlaylist = asyncHandler(async (req: Request, res: Response, n
 // @route GET /api/v1/playlists/:id
 // @desc Get a specific playlist by ID
 // @access [Artist, Admin, Regular]
-export const getPlaylistById = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the playlist ID from request parameters
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
 
-        // Validate playlist ID
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlist ID");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Find the playlist by ID
-        const playlist = await Playlist.findById(playlistId);
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
+        }
 
-        // Check if the playlist exists
+        const playlist = await Playlist.find({ _id: playlist_id, owner: user_id });
+
         if (!playlist) {
-            throw new APIError(404, "Playlist not found");
+            throw new APIError(404, "Failed To Retrive The PLaylist");
         }
 
-        // Send response with the found playlist
         res.status(200).json(new APIResponse(
             200,
             playlist,
-            "Playlist retrieved successfully",
+            "Playlist Retrieved Successfully",
         ));
     } catch (error) {
         next(error);
     }
 });
 
-// @route GET /api/v1/playlists/:userId
+// @route GET /api/v1/playlists/
 // @desc Get all playlists of a particular user
 // @access [Artist, Admin, Regular]
-export const getAllPlaylistByUserId = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getPlaylists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(400, "Invalid user ID");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Find all playlists belonging to the user
-        const playlists = await Playlist.find({ user: userId });
+        const playlists = await Playlist.find({ owner: user_id });
+        if (!playlists) {
+            throw new APIError(400, "Failed To Retrive The Playlist");
+        }
 
-        // Send response with playlists belonging to the user
         res.status(200).json(new APIResponse(
             200,
             playlists,
-            "All playlists retrieved successfully",
+            "Playlists Retrieved Successfully",
         ));
     } catch (error) {
         next(error);
@@ -263,86 +240,83 @@ export const getAllPlaylistByUserId = asyncHandler(async (req: Request, res: Res
 // @access [Artist, Admin, Regular]
 export const removeTrackFromPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { track_id } = req.body;
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Get playlist ID from request parameters
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // Validate playlist ID
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlist ID");
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
         }
 
-        // Get the track ID to be removed from the request body
-        const { trackId } = req.body;
-
-        // Validate track ID
-        if (!trackId) {
-            throw new APIError(400, "Track ID is required");
+        if (!track_id) {
+            throw new APIError(400, "Invalid Track ID");
         }
 
-        // Update the playlist by removing the track
-        const updatedPlaylist = await Playlist.updateOne(
-            { _id: playlistId, user: userId },
-            { $pull: { track: trackId } }
-        );
+        const retrivedPlaylist = await Playlist.find({ _id: playlist_id, owner: user_id });
 
-        // Check if the update was successful
+        if (!retrivedPlaylist) {
+            throw new APIError(400, "Failed To Retrive The Playlist");
+        }
+
+        const playlist = retrivedPlaylist[0];
+
+        if (user_id.toString() !== playlist.owner.toString()) {
+            throw new APIError(403, "You Don't Have Permission To Remove Tracks From This Playlist");
+        }
+
+        const index = playlist.tracks.indexOf(track_id);
+        let updatedPlaylist;
+        if (index !== -1) {
+            playlist.tracks.splice(index, 1);
+            updatedPlaylist = await playlist.save();
+        } else {
+            throw new APIError(404, "Track Not Found In The Playlist");
+        }
+
         if (!updatedPlaylist) {
-            throw new APIError(404, "Track not found in the playlist or permission denied");
+            throw new APIError(404, "Failed To Remove The Track From Playlist");
         }
 
-        // Send success response
         res.status(200).json(new APIResponse(
             200,
-            {},
-            "Track removed from the playlist successfully",
+            { playlist: updatedPlaylist },
+            "Track Removed From The Playlist Successfully",
         ));
     } catch (error) {
         next(error);
     }
 });
 
-// @route DELETE /api/v1/playlists/:id/remove
+// @route DELETE /api/v1/playlists/:id
 // @desc Remove specific playlist
 // @access [Artist, Admin, Regular]
 export const removePlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Retrieve the user ID from req.user
-        const userId: mongoose.Types.ObjectId = req.user?.id;
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
 
-        // Validate user ID
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        // Get playlist ID from request parameters
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // Validate playlist ID
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlist ID");
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
         }
 
-        // Find the playlist by ID and user ID
-        const playlist = await Playlist.findOneAndDelete({ _id: playlistId, user: userId });
+        const playlist = await Playlist.findOneAndDelete({ _id: playlist_id, owner: user_id });
 
-        // Check if the playlist was found and deleted
         if (!playlist) {
-            throw new APIError(404, "Playlist not found or permission denied");
+            throw new APIError(404, "Failed To Remove The Playlist");
         }
 
-        // Send success response
         res.status(200).json(new APIResponse(
             200,
             {},
-            "Playlist removed successfully",
+            "Playlist Removed Successfully",
         ));
     } catch (error) {
         next(error);
@@ -353,54 +327,47 @@ export const removePlaylist = asyncHandler(async (req: Request, res: Response, n
 // @desc    Like playlist
 // @access  [Admin, Artist, Regular]
 export const likePlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // get userId from req.user
-    const userId: mongoose.Types.ObjectId = req.user?.id;
-
     try {
-        // validate user id
-        if (!userId) {
-            throw new APIError(401, "Invalid request, sign in again");
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
         }
 
-        // get playlistId from params
-        const playlistId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
-
-        // validate playlist id
-        if (!playlistId) {
-            throw new APIError(400, "Invalid playlistId");
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Playlist ID Is Required");
         }
 
-        // retrive like document if exists
-        const like = await Like.findOne({ target_type: "Playlist", target_id: playlistId, user: userId });
+        const playlist = await Playlist.findById(playlist_id);
+        if (!playlist) {
+            throw new APIError(404, "Playlist Doesn't Exists")
+        }
 
-        // retrive playlist document by using playlistId
-        const playlist = await Playlist.findById(playlistId);
+        const like = await Like.findOne({ target_type: "Playlist", target_id: playlist_id, user: user_id }).lean();
 
-        // validate playlist
-        if (!playlist || playlist.totalLikes === undefined) throw new APIError(400, "playlist should not be null");
+        let message: string;
 
-        if (like) { // if already like that playlist then remove the document and remove 1 like from totalLikes
+        if (like) { // if already like that Playlist then remove the document and remove 1 like from total_likes
             await Like.deleteOne(like._id);
-            playlist.totalLikes = playlist.totalLikes - 1;
-        } else { // else create a new document and add 1 like into totalLikes
+            playlist.total_likes -= 1;
+            message = "Successfully Unlike The Playlist";
+        } else { // else create a new document and add 1 like into total_likes
             await Like.create({
-                user: userId,
+                user: user_id,
                 target_type: "Playlist",
-                target_id: playlist,
-            })
-            playlist.totalLikes = playlist.totalLikes + 1;
+                target_id: playlist_id,
+            });
+            playlist.total_likes += 1;
+            message = "Successfully Like The Playlist";
         }
 
-        // save the Playlist
-        await playlist.save({ validateBeforeSave: false });
-
-        // retrive the new playlist
-        const updatedPlaylist = await Playlist.findById(playlistId);
-
-        // send response back to client
+        await playlist.save();
+        const updatedPlaylist = await Playlist.findById(playlist_id);
         res.status(200).json(new APIResponse(
             200,
-            { totalLikes: updatedPlaylist?.totalLikes }
+            { total_likes: updatedPlaylist?.total_likes },
+            message
         ));
     } catch (error) {
         next(error);
