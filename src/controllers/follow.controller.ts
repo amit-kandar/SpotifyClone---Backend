@@ -6,7 +6,6 @@ import { APIResponse } from "../utils/APIResponse";
 import { asyncHandler } from "../utils/asyncHandler";
 import { Artist } from "../models/artist.model";
 
-
 // @route   POST /api/v1/follow/
 // @desc    Follow specific artist by :id
 // @access  [admin, artist, regular]
@@ -20,7 +19,7 @@ export const followArtist = asyncHandler(async (req: Request, res: Response, nex
         }
 
         if (!mongoose.Types.ObjectId.isValid(artist_id)) {
-            throw new APIError(404, "Invallid Artist Id");
+            throw new APIError(400, "Invallid Artist Id");
         }
 
         const artist = await Artist.find({ user: artist_id }).lean();
@@ -110,11 +109,9 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
             throw new APIError(404, "Failed To Retrive The Following Artists.");
         }
 
-        const total = allFollowingArtists.length;
-
         res.status(200).json(new APIResponse(
             200,
-            { total, following: allFollowingArtists },
+            { total: allFollowingArtists.length, following: allFollowingArtists },
             "Successfully Fetched All Followed Artists."
         ));
     } catch (error) {
@@ -128,18 +125,18 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
 export const getTotalFollowers = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = new mongoose.Types.ObjectId(req.user?._id);
+        const artist_id = new mongoose.Types.ObjectId(req.params.artist_id);
 
         if (!mongoose.Types.ObjectId.isValid(user_id)) {
             throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        const artist_id: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.artist_id);
 
         if (!artist_id || !mongoose.Types.ObjectId.isValid(artist_id)) {
             throw new APIError(400, 'Invalid Artist ID.');
         }
 
-        const followers = await Follower.find({ artist: artist_id });
+        const followers = await Follower.find({ artist: artist_id }).lean();
 
         if (!followers)
             throw new APIError(404, 'Failed To Retrive Followers');
