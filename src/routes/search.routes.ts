@@ -1,16 +1,14 @@
 import express, { Router } from 'express';
-
-const router: Router = express.Router();
-
 import { clearAll, deleteOneSearch, getHistory, search } from '../controllers/search.controller';
 import { checkAuth } from '../middlewares/auth.middleware';
 
-// Define routes
+const router: Router = express.Router();
+
 router.get('/search', checkAuth, search);
 
-router.get('/history', checkAuth, getHistory);
+router.get('/', checkAuth, getHistory);
 
-router.delete('/clearall', checkAuth, clearAll);
+router.delete('/clear-all', checkAuth, clearAll);
 
 router.delete('/:id', checkAuth, deleteOneSearch);
 

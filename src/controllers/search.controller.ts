@@ -27,6 +27,9 @@ const searchQuery = async (query: string) => {
     }
 };
 
+// @route   GET /api/v1/searches/search
+// @desc    Search A Query
+// @access  [admin, artist, regular]
 export const search = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
@@ -41,8 +44,14 @@ export const search = asyncHandler(async (req: Request, res: Response, next: Nex
         }
 
         const response = await searchQuery(query);
+        if (!response) {
+            throw new APIError(400, "Failed To Search Query");
+        }
 
-        await Search.create({ user: user_id, query: query });
+        const search = await Search.create({ user: user_id, query: query });
+        if (!search) {
+            throw new APIError(400, "Failed To Add Search Query Into Search Document");
+        }
 
         res.status(200).json(new APIResponse(200, { total: response.length, searches: response }, "Successfully Fetched The Searched Results"));
     } catch (error) {
@@ -50,6 +59,9 @@ export const search = asyncHandler(async (req: Request, res: Response, next: Nex
     }
 });
 
+// @route   GET /api/v1/searches/
+// @desc    Get All Search History
+// @access  [admin, artist, regular]
 export const getHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
@@ -64,12 +76,15 @@ export const getHistory = asyncHandler(async (req: Request, res: Response, next:
             throw new APIError(404, "No Search History Found");
         }
 
-        res.status(200).json(new APIResponse(200, { total: history.length, history: search }, "Fetched All Searched Histories"));
+        res.status(200).json(new APIResponse(200, { total: search.length, history: search }, "Fetched All Searched Histories"));
     } catch (error) {
         next(error);
     }
 });
 
+// @route   DELETE /api/v1/searches/:id
+// @desc    Delete One History
+// @access  [admin, artist, regular]
 export const deleteOneSearch = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
@@ -79,9 +94,13 @@ export const deleteOneSearch = asyncHandler(async (req: Request, res: Response, 
             throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-
-        if (!search_id) {
+        if (!mongoose.Types.ObjectId.isValid(search_id)) {
             throw new APIError(400, "Invalid Search ID");
+        }
+
+        const search = await Search.findById(search_id).lean();
+        if (!search) {
+            throw new APIError(400, "Failed To Retrive Search");
         }
 
         await Search.deleteOne({ user: user_id, _id: search_id });
@@ -92,6 +111,9 @@ export const deleteOneSearch = asyncHandler(async (req: Request, res: Response, 
     }
 });
 
+// @route   DELETE /api/v1/searches/clear-all
+// @desc    Delete All Search History
+// @access  [admin, artist, regular]
 export const clearAll = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const user_id = req.user?._id;
