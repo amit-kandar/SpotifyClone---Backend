@@ -1,9 +1,8 @@
-import { Schema, Document, model, Model, Types } from "mongoose";
+import { Schema, Document, model, Types } from "mongoose";
 
 interface HistoryDocument extends Document {
     user: Types.ObjectId;
-    target_type: string;
-    target_id: Types.ObjectId;
+    track_id: Types.ObjectId;
 }
 
 const HistorySchema = new Schema<HistoryDocument>({
@@ -11,12 +10,7 @@ const HistorySchema = new Schema<HistoryDocument>({
         type: Schema.Types.ObjectId,
         required: true,
     },
-    target_type: {
-        type: String,
-        enum: ['Track', 'Playlist', 'Album'],
-        required: true,
-    },
-    target_id: {
+    track_id: {
         type: Schema.Types.ObjectId,
         required: true,
     }
