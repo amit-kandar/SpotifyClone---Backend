@@ -29,22 +29,22 @@ const searchQuery = async (query: string) => {
 
 export const search = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const user_id = req.user?._id;
+        const query = req.query.q;
 
-        if (!userId) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        const query = req.query.q;
         if (!query || typeof query !== 'string') {
             throw new APIError(400, "Invalid Query Parameter");
         }
 
         const response = await searchQuery(query);
 
-        await Search.create({ user: userId, query: query });
+        await Search.create({ user: user_id, query: query });
 
-        res.status(200).json(new APIResponse(200, { total: response.length, response }, "Successfully Fetched The Searched Results"));
+        res.status(200).json(new APIResponse(200, { total: response.length, searches: response }, "Successfully Fetched The Searched Results"));
     } catch (error) {
         next(error);
     }
@@ -52,19 +52,19 @@ export const search = asyncHandler(async (req: Request, res: Response, next: Nex
 
 export const getHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userID = req.user?._id;
+        const user_id = req.user?._id;
 
-        if (!userID) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        const history = await Search.find({ user: userID });
+        const search = await Search.find({ user: user_id }).lean();
 
-        if (!history) {
+        if (!search) {
             throw new APIError(404, "No Search History Found");
         }
 
-        res.status(200).json(new APIResponse(200, { total: history.length, history }, "Fetched All Searched Histories"));
+        res.status(200).json(new APIResponse(200, { total: history.length, history: search }, "Fetched All Searched Histories"));
     } catch (error) {
         next(error);
     }
@@ -72,21 +72,21 @@ export const getHistory = asyncHandler(async (req: Request, res: Response, next:
 
 export const deleteOneSearch = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userID = req.user?._id;
+        const user_id = req.user?._id;
+        const search_id = new mongoose.Types.ObjectId(req.params.id);
 
-        if (!userID) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        const searchID: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(req.params.id);
 
-        if (!searchID) {
+        if (!search_id) {
             throw new APIError(400, "Invalid Search ID");
         }
 
-        await Search.deleteOne({ user: userID, _id: searchID });
+        await Search.deleteOne({ user: user_id, _id: search_id });
 
-        res.status(200).json(new APIResponse(200, "Successfully Deleted"));
+        res.status(200).json(new APIResponse(200, {}, "Successfully Deleted"));
     } catch (error) {
         next(error);
     }
@@ -94,15 +94,15 @@ export const deleteOneSearch = asyncHandler(async (req: Request, res: Response, 
 
 export const clearAll = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userID = req.user?._id;
+        const user_id = req.user?._id;
 
-        if (!userID) {
-            throw new APIError(401, "Unauthorized. Please Sign in Again");
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
-        await Search.deleteMany({ user: userID });
+        await Search.deleteMany({ user: user_id });
 
-        res.status(200).json(new APIResponse(200, "Successfully deleted all searches"));
+        res.status(200).json(new APIResponse(200, {}, "Successfully deleted all searches"));
     } catch (error) {
         next(error);
     }

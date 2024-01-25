@@ -106,15 +106,15 @@ export const followingArtistByUser = asyncHandler(async (req: Request, res: Resp
             }
         ]);
 
-        if (!allFollowingArtists || allFollowingArtists.length === 0) {
-            throw new APIError(404, "No Followed Artists Found For The User.");
+        if (!allFollowingArtists) {
+            throw new APIError(404, "Failed To Retrive The Following Artists.");
         }
 
         const total = allFollowingArtists.length;
 
         res.status(200).json(new APIResponse(
             200,
-            { total, Following: allFollowingArtists },
+            { total, following: allFollowingArtists },
             "Successfully Fetched All Followed Artists."
         ));
     } catch (error) {
@@ -142,7 +142,7 @@ export const getTotalFollowers = asyncHandler(async (req: Request, res: Response
         const followers = await Follower.find({ artist: artist_id });
 
         if (!followers)
-            throw new APIError(404, 'No Followers Found For The Secified Artist.');
+            throw new APIError(404, 'Failed To Retrive Followers');
 
         const totalFollowers = followers.length;
 

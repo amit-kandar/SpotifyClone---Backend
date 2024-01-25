@@ -150,7 +150,7 @@ export const updateArtist = asyncHandler(async (req: Request, res: Response, nex
 
         res.status(200).json(new APIResponse(
             200,
-            { Artist: user },
+            { artist: user },
             "Artist Updated Successfully."
         ));
 
@@ -234,7 +234,7 @@ export const getArtist = asyncHandler(async (req: Request, res: Response, next: 
 
         res.status(200).json(new APIResponse(
             200,
-            { Artist: artist[0] },
+            { artist: artist[0] },
             "Artist Details Fetched Successfully."
         ));
     } catch (error) {
@@ -309,7 +309,7 @@ export const getArtists = asyncHandler(async (req: Request, res: Response, next:
 
         res.status(200).json(new APIResponse(
             200,
-            { total: artists.length, Artists: artists },
+            { total: artists.length, artists: artists },
             "Artists Fetched Successfully."
         ));
     } catch (error) {
