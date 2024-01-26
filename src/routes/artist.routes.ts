@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createArtist, getArtist, getArtists, likeUnlikeArtist, updateArtist } from "../controllers/artist.controller";
+import { createArtist, getArtist, getArtists, likeUnlikeArtist, likedArtists, updateArtist } from "../controllers/artist.controller";
 import { checkRole } from "../middlewares/permission.middleware";
 import { checkAuth } from "../middlewares/auth.middleware";
 
@@ -10,6 +10,9 @@ router.post("/", checkAuth, checkRole(["admin", "regular"]), createArtist);
 
 // Get list of all artists
 router.get("/", checkAuth, checkRole(["admin", "regular", "artist"]), getArtists);
+
+// Get list of all liked artists
+router.get("/liked", checkAuth, checkRole(["admin", "regular", "artist"]), likedArtists);
 
 // Get information about a specific artist by ID
 router.get("/:id", checkAuth, checkRole(["admin", "regular", "artist"]), getArtist);

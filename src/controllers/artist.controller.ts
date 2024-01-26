@@ -370,3 +370,65 @@ export const likeUnlikeArtist = asyncHandler(async (req: Request, res: Response,
         next(error);
     }
 });
+
+// @route   POST /api/v1/artists/liked
+// @desc    Get All Like Atist
+// @access  [Admin, Artist, Regular]
+export const likedArtists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = new mongoose.Types.ObjectId(req.user?._id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        const artists = await Like.aggregate([
+            { $match: { user: user_id, target_type: 'Artist' } },
+            {
+                $lookup: {
+                    from: 'artists',
+                    foreignField: '_id',
+                    localField: 'target_id',
+                    as: 'Artist'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    foreignField: '_id',
+                    localField: 'user',
+                    as: 'Details'
+                }
+            },
+            { $unwind: '$Artist' },
+            { $unwind: '$Details' },
+            {
+                $project: {
+                    _id: "$Artist.user",
+                    artist_id: "$Artist._id",
+                    name: "$Details.name",
+                    username: "$Details.username",
+                    role: "$Details.role",
+                    email: "$Details.email",
+                    date_of_birth: "$Details.date_of_birth",
+                    genre: "$Artist.genre",
+                    bio: "$Artist.bio",
+                    totalLikes: "$Artist.totalLikes",
+                    avatar: {
+                        url: "$Details.avatar.url",
+                        public_id: "$Details.avatar.public_id",
+                        _id: "$Details.avatar._id"
+                    }
+                }
+            }
+        ]);
+
+        if (!artists) {
+            throw new APIError(400, "Failed To Fetch The Liked Albums.");
+        }
+
+        res.status(200).json(new APIResponse(200, { total: artists.length, artists }, "Successfully Fetched All The Liked ALbums"));
+    } catch (error) {
+        next(error);
+    }
+});
