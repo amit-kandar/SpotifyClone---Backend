@@ -13,6 +13,7 @@ import {
 } from "../controllers/user.controller";
 import { upload } from "../middlewares/multer.middleware";
 import { checkAuth } from "../middlewares/auth.middleware";
+import { checkRole } from "../middlewares/permission.middleware";
 
 const router = Router();
 
@@ -36,18 +37,18 @@ router.get("/signout", checkAuth, signout);
 router.post("/refresh-token", getAccessTokenByRefreshToken);
 
 // Route for getting user details
-router.get("/fetch-user", checkAuth, getUserDetails);
+router.get("/fetch-user", checkAuth, checkRole(["admin", "artist", "regular"]), getUserDetails);
 
 // Route for updating user details
-router.put("/update-user", checkAuth, updateUserDetails);
+router.put("/update-user", checkAuth, checkRole(["admin", "artist", "regular"]), updateUserDetails);
 
 // Route for changing user avatar
-router.put("/change-avatar", checkAuth, upload.single("avatar"), changeAvatar);
+router.put("/change-avatar", checkAuth, checkRole(["admin", "artist", "regular"]), upload.single("avatar"), changeAvatar);
 
 // Route for changing user password
-router.put("/change-password", checkAuth, changePassword);
+router.put("/change-password", checkAuth, checkRole(["admin", "artist", "regular"]), changePassword);
 
 // Route for resetting user password
-router.post("/reset-password", checkAuth, resetPassword);
+router.post("/reset-password", checkAuth, checkRole(["admin", "artist", "regular"]), resetPassword);
 
 export default router;

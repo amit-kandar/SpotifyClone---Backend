@@ -20,13 +20,13 @@ const router = Router();
 router.post("/", checkAuth, checkRole(["admin", "artist"]), upload.single("cover_image"), createAlbum);
 
 // Get all albums
-router.get("/", checkAuth, getAlbums);
+router.get("/", checkAuth, checkRole(["admin", "artist", "regular"]), getAlbums);
 
 // Get liked albums
-router.get("/liked", checkAuth, likedAlbum);
+router.get("/liked", checkAuth, checkRole(["admin", "artist", "regular"]), likedAlbum);
 
 // Get album by ID
-router.get("/:id", checkAuth, getAlbum);
+router.get("/:id", checkAuth, checkRole(["admin", "artist", "regular"]), getAlbum);
 
 // Update an album
 router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updateAlbum);

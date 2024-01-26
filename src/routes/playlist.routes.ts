@@ -9,13 +9,13 @@ const router = Router();
 router.post("/", checkAuth, checkRole(["admin", "artist"]), upload.single("cover_image"), createPlaylist);
 
 // Get all playlists
-router.get("/", checkAuth, getPlaylists);
+router.get("/", checkAuth, checkRole(["admin", "artist", "regular"]), getPlaylists);
 
 // Get all liked playlists
-router.get("/liked", checkAuth, likedPlaylists);
+router.get("/liked", checkAuth, checkRole(["admin", "artist", "regular"]), likedPlaylists);
 
 // Get playlist by ID
-router.get("/:id", checkAuth, getPlaylist);
+router.get("/:id", checkAuth, checkRole(["admin", "artist", "regular"]), getPlaylist);
 
 // Add track to an playlist
 router.put("/:id/add-track", checkAuth, checkRole(["admin", "artist"]), addTrackToPlaylist);
@@ -27,7 +27,7 @@ router.delete("/:id/remove-track", checkAuth, checkRole(["admin", "artist"]), re
 router.delete("/:id", checkAuth, checkRole(["admin", "artist"]), removePlaylist);
 
 // Like an playlist
-router.post("/:id/like", checkAuth, likePlaylist);
+router.post("/:id/like", checkAuth, checkRole(["admin", "artist", "regular"]), likePlaylist);
 
 // Update an playlist
 router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updatePlaylist);
