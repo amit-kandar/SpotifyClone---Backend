@@ -373,3 +373,52 @@ export const likePlaylist = asyncHandler(async (req: Request, res: Response, nex
         next(error);
     }
 });
+
+// @route   POST /api/v1/playlists/liked
+// @desc    Get All Like Playlists
+// @access  [Admin, Artist, Regular]
+export const likedPlaylists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = new mongoose.Types.ObjectId(req.user?._id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        const playlists = await Like.aggregate([
+            { $match: { user: user_id, target_type: 'Playlist' } },
+            {
+                $lookup: {
+                    from: 'playlists',
+                    foreignField: '_id',
+                    localField: 'target_id',
+                    as: 'likedPlaylists'
+                }
+            },
+            { $unwind: '$likedPlaylists' },
+            {
+                $project: {
+                    _id: '$likedPlaylists._id',
+                    name: '$likedPlaylists.name',
+                    description: '$likedPlaylists.description',
+                    cover_image: '$likedPlaylists.cover_image',
+                    artist: '$likedPlaylists.artist',
+                    tracks: '$likedPlaylists.tracks',
+                    totalLikes: '$likedPlaylists.totalLikes',
+                    createdAt: '$likedPlaylists.createdAt',
+                    updatedAt: '$likedPlaylists.updatedAt',
+                    __v: '$likedPlaylists.__v',
+                    total_likes: '$likedPlaylists.total_likes'
+                }
+            }
+        ]);
+
+        if (!playlists) {
+            throw new APIError(400, "Failed To Fetch The Liked Playlists.");
+        }
+
+        res.status(200).json(new APIResponse(200, { total: playlists.length, playlists }, "Successfully Fetched All The Liked Playlists"));
+    } catch (error) {
+        next(error);
+    }
+});

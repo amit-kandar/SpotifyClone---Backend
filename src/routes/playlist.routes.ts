@@ -2,7 +2,7 @@ import Router from 'express';
 import { checkAuth } from '../middlewares/auth.middleware';
 import { checkRole } from '../middlewares/permission.middleware';
 import { upload } from '../middlewares/multer.middleware';
-import { addTrackToPlaylist, createPlaylist, getPlaylists, getPlaylist, likePlaylist, removePlaylist, removeTrackFromPlaylist, updatePlaylist } from '../controllers/playlist.controller';
+import { addTrackToPlaylist, createPlaylist, getPlaylists, getPlaylist, likePlaylist, removePlaylist, removeTrackFromPlaylist, updatePlaylist, likedPlaylists } from '../controllers/playlist.controller';
 const router = Router();
 
 // Create a new playlist
@@ -10,6 +10,9 @@ router.post("/", checkAuth, checkRole(["admin", "artist"]), upload.single("cover
 
 // Get all playlists
 router.get("/", checkAuth, getPlaylists);
+
+// Get all liked playlists
+router.get("/liked", checkAuth, likedPlaylists);
 
 // Get playlist by ID
 router.get("/:id", checkAuth, getPlaylist);
@@ -24,7 +27,7 @@ router.delete("/:id/remove-track", checkAuth, checkRole(["admin", "artist"]), re
 router.delete("/:id", checkAuth, checkRole(["admin", "artist"]), removePlaylist);
 
 // Like an playlist
-router.post("/:id/like", checkAuth, checkRole(["admin", "artist"]), likePlaylist);
+router.post("/:id/like", checkAuth, likePlaylist);
 
 // Update an playlist
 router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updatePlaylist);
