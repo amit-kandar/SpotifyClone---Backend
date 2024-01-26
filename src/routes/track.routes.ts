@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { checkAuth } from "../middlewares/auth.middleware";
 import { upload } from "../middlewares/multer.middleware";
-import { addTrack, getTrack, getTracks, deleteTrack, updateTrack, likeUnlikeTrack } from "../controllers/track.controller";
+import { addTrack, getTrack, getTracks, deleteTrack, updateTrack, likeUnlikeTrack, likedTracks } from "../controllers/track.controller";
 import { checkRole } from "../middlewares/permission.middleware";
 
 const router = Router();
@@ -21,6 +21,9 @@ router.post(
 // Get all tracks of a artist
 router.get("/", checkAuth, checkRole(["admin", "artist", "regular"]), getTracks);
 
+// Get all liked tracks
+router.get("/liked", checkAuth, checkRole(["admin", "artist", "regular"]), likedTracks);
+
 // Get a specific track by ID
 router.get("/:id", checkAuth, checkRole(["admin", "artist", "regular"]), getTrack);
 
@@ -31,6 +34,6 @@ router.put("/:id", checkAuth, checkRole(["admin", "artist"]), updateTrack);
 router.delete("/:id", checkAuth, checkRole(["admin", "artist"]), deleteTrack);
 
 // Like a track by ID
-router.post("/:id/like", checkAuth, likeUnlikeTrack);
+router.post("/:id/like", checkAuth, checkRole(["admin", "artist", "regular"]), likeUnlikeTrack);
 
 export default router;
