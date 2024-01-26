@@ -379,3 +379,52 @@ export const likeUnlikeAlbum = asyncHandler(async (req: Request, res: Response, 
         next(error);
     }
 });
+
+// @route   POST /api/v1/albums/liked
+// @desc    Get All Like Album
+// @access  [Admin, Artist, Regular]
+export const likedAlbum = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = new mongoose.Types.ObjectId(req.user?._id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        const albums = await Like.aggregate([
+            { $match: { user: user_id, target_type: 'Album' } },
+            {
+                $lookup: {
+                    from: 'albums',
+                    foreignField: '_id',
+                    localField: 'target_id',
+                    as: 'likedAlbums'
+                }
+            },
+            { $unwind: '$likedAlbums' },
+            {
+                $project: {
+                    _id: '$likedAlbums._id',
+                    name: '$likedAlbums.name',
+                    description: '$likedAlbums.description',
+                    cover_image: '$likedAlbums.cover_image',
+                    artist: '$likedAlbums.artist',
+                    tracks: '$likedAlbums.tracks',
+                    totalLikes: '$likedAlbums.totalLikes',
+                    createdAt: '$likedAlbums.createdAt',
+                    updatedAt: '$likedAlbums.updatedAt',
+                    __v: '$likedAlbums.__v',
+                    total_likes: '$likedAlbums.total_likes'
+                }
+            }
+        ]);
+
+        if (!albums) {
+            throw new APIError(400, "Failed To Fetch The Liked Albums.");
+        }
+
+        res.status(200).json(new APIResponse(200, { total: albums.length, albums }, "Successfully Fetched All The Liked ALbums"));
+    } catch (error) {
+        next(error);
+    }
+});

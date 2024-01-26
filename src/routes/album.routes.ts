@@ -7,6 +7,7 @@ import {
     getAlbum,
     getAlbums,
     likeUnlikeAlbum,
+    likedAlbum,
     removeAlbum,
     removeTrackFromAlbum,
     updateAlbum,
@@ -20,6 +21,9 @@ router.post("/", checkAuth, checkRole(["admin", "artist"]), upload.single("cover
 
 // Get all albums
 router.get("/", checkAuth, getAlbums);
+
+// Get liked albums
+router.get("/liked", checkAuth, likedAlbum);
 
 // Get album by ID
 router.get("/:id", checkAuth, getAlbum);
