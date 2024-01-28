@@ -291,7 +291,7 @@ export const getAccessTokenByRefreshToken = asyncHandler(async (req: Request, re
         const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
         if (!incomingRefreshToken) {
-            throw new APIError(403, "Unauthorized Request");
+            throw new APIError(401, "Unauthorized Request, Signin Again");
         }
 
         const refreshSecret: string | undefined = process.env.REFRESH_TOKEN_SECRET;
