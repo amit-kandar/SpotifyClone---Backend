@@ -48,5 +48,9 @@ app.use('/api/v1/follow', followRoutes);
 
 app.use(errorHandler);
 
+app.get("/", (req, res) => {
+    res.status(200).json("Hello World")
+})
+
 
 export { app }
