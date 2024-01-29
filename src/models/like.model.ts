@@ -2,9 +2,9 @@ import mongoose, { Schema, Document, model, Model, Types } from "mongoose";
 import { APIError } from "../utils/APIError";
 
 interface Like extends Document {
-    user: Types.ObjectId;
+    user: Schema.Types.ObjectId;
     target_type: string;
-    target_id: Types.ObjectId;
+    target_id: Schema.Types.ObjectId;
 }
 
 const LikeSchema = new Schema<Like>({

@@ -1,8 +1,8 @@
 import { Schema, Document, model, Types } from "mongoose";
 
 interface HistoryDocument extends Document {
-    user: Types.ObjectId;
-    track_id: Types.ObjectId;
+    user: Schema.Types.ObjectId;
+    track_id: Schema.Types.ObjectId;
 }
 
 const HistorySchema = new Schema<HistoryDocument>({
