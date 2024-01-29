@@ -4,6 +4,7 @@ import { DATA_LIMIT } from "./constants";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/errorHandler.middleware";
 import redisClient from "./config/redis";
+import helmet from "helmet";
 
 const app: Application = express();
 
@@ -18,9 +19,11 @@ app.use(express.urlencoded({ extended: true, limit: DATA_LIMIT }));
 
 app.use(express.static("public"));
 
-app.use(cookieParser())
+app.use(cookieParser());
 
-redisClient.connect()
+app.use(helmet());
+
+redisClient.connect();
 
 // Import all routes
 import userRoutes from './routes/user.routes';
