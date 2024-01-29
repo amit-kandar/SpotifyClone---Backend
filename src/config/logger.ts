@@ -1,5 +1,4 @@
 import { createLogger, format, transports, Logger } from 'winston';
-import { APIError } from '../utils/APIError';
 
 const { combine, timestamp, printf, colorize } = format;
 
@@ -37,7 +36,7 @@ const myCustomLevels = {
 };
 
 
-const spotifyLogger = () => {
+const developmentLogger = () => {
     return createLogger({
         levels: myCustomLevels.levels,
         format: combine(
@@ -54,10 +53,27 @@ const spotifyLogger = () => {
     });
 }
 
-let logger: Logger = spotifyLogger();
+const productionLogger = () => {
+    return createLogger({
+        levels: myCustomLevels.levels,
+        format: combine(
+            colorize({ all: true, colors: myCustomLevels.colors }),
+            timestamp({ format: "YY-MM-DD HH:mm:ss" }),
+            myFormat,
+        ),
+        transports: [
+            new transports.File({ filename: 'logger/error.log', level: 'error' }),
+            new transports.File({ filename: 'logger/warn.log', level: 'warning' }),
+            new transports.File({ filename: 'logger/info.log', level: 'info' }),
+            new transports.Console(),
+        ],
+    });
+}
+
+let logger: Logger = developmentLogger();
 
 if (process.env.NODE_ENV !== 'production') {
-    logger = spotifyLogger();
+    logger = productionLogger();
 }
 
 export default logger;
