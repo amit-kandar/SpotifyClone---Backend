@@ -1,6 +1,6 @@
 import { Response, Request, NextFunction } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import mongoose from "mongoose";
+import mongoose, { Mongoose, Schema } from "mongoose";
 import { APIError } from "../utils/APIError";
 import { uploadToCloudinary } from "../utils/cloudinary";
 import { UploadApiResponse } from "cloudinary";
@@ -8,6 +8,7 @@ import { APIResponse } from "../utils/APIResponse";
 import { Like } from "../models/like.model";
 import { Playlist } from "../models/playlist.model";
 import { Track } from "../models/track.model";
+import { User } from "../models/user.model";
 
 // @route POST /api/v1/playlists/
 // @desc Create new playlist
@@ -48,64 +49,6 @@ export const createPlaylist = asyncHandler(async (req: Request, res: Response, n
             201,
             playlist,
             "Playlist Created Successfully",
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route PUT /api/v1/playlists/:id/add-track
-// @desc Add song to playlist
-// @access [Artist, Admin, Regular]
-export const addTrackToPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const user_id = req.user?._id;
-        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
-        const { track_id } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized Request, Signin Again");
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(track_id)) {
-            throw new APIError(400, "Track ID is Required");
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
-            throw new APIError(400, "Invalid Playlist ID");
-        }
-
-        const track = await Track.findById(track_id).lean();
-        if (!track) {
-            throw new APIError(400, "Track Doesn't Exists");
-        }
-
-        const playlist = await Playlist.findById(playlist_id);
-
-        if (!playlist) {
-            throw new APIError(404, "Playlist Not Found");
-        }
-
-        if (playlist.owner.toString() !== user_id.toString()) {
-            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
-        }
-
-        if (playlist.tracks.includes(track_id)) {
-            throw new APIError(400, "Track Already Exists in the Playlist");
-        }
-
-        playlist.tracks.push(track_id);
-
-        const updatedPlalist = await playlist.save();
-
-        if (!updatedPlalist) {
-            throw new APIError(400, "Failed To Add The Track To The Playlist");
-        }
-
-        res.status(200).json(new APIResponse(
-            200,
-            { playlist: updatedPlalist },
-            "Track Added To The Playlist Successfully",
         ));
     } catch (error) {
         next(error);
@@ -193,7 +136,7 @@ export const getPlaylist = asyncHandler(async (req: Request, res: Response, next
             throw new APIError(400, "Invalid Playlist ID");
         }
 
-        const playlist = await Playlist.find({ _id: playlist_id, owner: user_id });
+        const playlist = await Playlist.findById(playlist_id);
 
         if (!playlist) {
             throw new APIError(404, "Failed To Retrive The PLaylist");
@@ -203,88 +146,6 @@ export const getPlaylist = asyncHandler(async (req: Request, res: Response, next
             200,
             playlist,
             "Playlist Retrieved Successfully",
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route GET /api/v1/playlists/
-// @desc Get all playlists of a particular user
-// @access [Artist, Admin, Regular]
-export const getPlaylists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const user_id = req.user?._id;
-
-        if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized Request, Signin Again");
-        }
-
-        const playlists = await Playlist.find({ owner: user_id });
-        if (!playlists) {
-            throw new APIError(400, "Failed To Retrive The Playlist");
-        }
-
-        res.status(200).json(new APIResponse(
-            200,
-            playlists,
-            "Playlists Retrieved Successfully",
-        ));
-    } catch (error) {
-        next(error);
-    }
-});
-
-// @route DELETE /api/v1/playlists/:id/remove-track
-// @desc Remove track from playlist
-// @access [Artist, Admin, Regular]
-export const removeTrackFromPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const user_id = req.user?._id;
-        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
-        const { track_id } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new APIError(401, "Unauthorized Request, Signin Again");
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
-            throw new APIError(400, "Invalid Playlist ID");
-        }
-
-        if (!track_id) {
-            throw new APIError(400, "Invalid Track ID");
-        }
-
-        const retrivedPlaylist = await Playlist.find({ _id: playlist_id, owner: user_id });
-
-        if (!retrivedPlaylist) {
-            throw new APIError(400, "Failed To Retrive The Playlist");
-        }
-
-        const playlist = retrivedPlaylist[0];
-
-        if (user_id.toString() !== playlist.owner.toString()) {
-            throw new APIError(403, "You Don't Have Permission To Remove Tracks From This Playlist");
-        }
-
-        const index = playlist.tracks.indexOf(track_id);
-        let updatedPlaylist;
-        if (index !== -1) {
-            playlist.tracks.splice(index, 1);
-            updatedPlaylist = await playlist.save();
-        } else {
-            throw new APIError(404, "Track Not Found In The Playlist");
-        }
-
-        if (!updatedPlaylist) {
-            throw new APIError(404, "Failed To Remove The Track From Playlist");
-        }
-
-        res.status(200).json(new APIResponse(
-            200,
-            { playlist: updatedPlaylist },
-            "Track Removed From The Playlist Successfully",
         ));
     } catch (error) {
         next(error);
@@ -317,6 +178,148 @@ export const removePlaylist = asyncHandler(async (req: Request, res: Response, n
             200,
             {},
             "Playlist Removed Successfully",
+        ));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route GET /api/v1/playlists/
+// @desc Get all playlists of a particular user
+// @access [Artist, Admin, Regular]
+export const getPlaylists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user?._id;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
+        }
+
+        const playlists = await Playlist.find({ owner: user_id });
+        if (!playlists) {
+            throw new APIError(400, "Failed To Retrive The Playlist");
+        }
+
+        res.status(200).json(new APIResponse(
+            200,
+            playlists,
+            "Playlists Retrieved Successfully",
+        ));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route PUT /api/v1/playlists/:id/add-track
+// @desc Add song to playlist
+// @access [Artist, Admin, Regular]
+export const addTrackToPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        let user_id = req.user._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { track_id } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(track_id)) {
+            throw new APIError(400, "Track ID is Required");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
+        }
+
+        const collaborator_id: Schema.Types.ObjectId = new Schema.Types.ObjectId(user_id.toString());
+
+        const track = await Track.findById(track_id).lean();
+        if (!track) {
+            throw new APIError(400, "Track Doesn't Exists");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+
+        if (!playlist) {
+            throw new APIError(404, "Playlist Not Found");
+        }
+
+        if (playlist.owner.toString() !== user_id.toString() && !playlist.collaborator.includes(collaborator_id)) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
+        }
+
+        if (playlist.tracks.includes(track_id)) {
+            throw new APIError(400, "Track Already Exists in the Playlist");
+        }
+
+        playlist.tracks.push(track_id);
+
+        const updatedPlalist = await playlist.save();
+
+        if (!updatedPlalist) {
+            throw new APIError(400, "Failed To Add The Track To The Playlist");
+        }
+
+        res.status(200).json(new APIResponse(
+            200,
+            { playlist: updatedPlalist },
+            "Track Added To The Playlist Successfully",
+        ));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route DELETE /api/v1/playlists/:id/remove-track
+// @desc Remove track from playlist
+// @access [Artist, Admin, Regular]
+export const removeTrackFromPlaylist = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { track_id } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Signin Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Invalid Playlist ID");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(track_id)) {
+            throw new APIError(400, "Invalid Track ID");
+        }
+
+        const collaborator_id: any = user_id;
+
+        const playlist = await Playlist.findById(playlist_id);
+
+        if (!playlist) {
+            throw new APIError(400, "Failed To Retrive The Playlist");
+        }
+
+        if (user_id.toString() !== playlist.owner.toString() && !playlist.collaborator.includes(collaborator_id)) {
+            throw new APIError(403, "You Don't Have Permission To Remove Tracks From This Playlist");
+        }
+
+        const index = playlist.tracks.indexOf(track_id);
+        let updatedPlaylist;
+        if (index !== -1) {
+            playlist.tracks.splice(index, 1);
+            updatedPlaylist = await playlist.save();
+        } else {
+            throw new APIError(404, "Track Not Found In The Playlist");
+        }
+
+        if (!updatedPlaylist) {
+            throw new APIError(404, "Failed To Remove The Track From Playlist");
+        }
+
+        res.status(200).json(new APIResponse(
+            200,
+            { playlist: updatedPlaylist },
+            "Track Removed From The Playlist Successfully",
         ));
     } catch (error) {
         next(error);
@@ -374,7 +377,7 @@ export const likePlaylist = asyncHandler(async (req: Request, res: Response, nex
     }
 });
 
-// @route   POST /api/v1/playlists/liked
+// @route   GET /api/v1/playlists/liked
 // @desc    Get All Like Playlists
 // @access  [Admin, Artist, Regular]
 export const likedPlaylists = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -418,6 +421,134 @@ export const likedPlaylists = asyncHandler(async (req: Request, res: Response, n
         }
 
         res.status(200).json(new APIResponse(200, { total: playlists.length, playlists }, "Successfully Fetched All The Liked Playlists"));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route   POST /api/v1/playlists/:id/collaborator
+// @desc    Add Collaborator to Playlists
+// @access  [Admin, Artist, Regular]
+export const addCollaborator = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { collaborator_id } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(collaborator_id)) {
+            throw new APIError(400, "Invalid Collaborator Id");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Playlist ID Is Required");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+        if (!playlist) {
+            throw new APIError(404, "Playlist Doesn't Exists")
+        }
+
+        if (user_id.toString() !== playlist.owner.toString()) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
+        }
+
+        const user = await User.findById(collaborator_id).lean();
+        if (!user) {
+            throw new APIError(400, "Collaborator Does Not Exists");
+        }
+
+        if (playlist.collaborator.includes(collaborator_id)) {
+            throw new APIError(400, "Collaborator Already Exists");
+        }
+
+        playlist.collaborator.push(collaborator_id)
+
+        const updatedPlalist = await playlist.save();
+        if (!updatedPlalist) {
+            throw new APIError(400, "Failed Add Collaborator");
+        }
+
+        res.status(201).json(new APIResponse(201, { playlist: updatedPlalist }, "Collaborator Successfully Added"));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route   Delete /api/v1/playlists/:id/collaborator
+// @desc    Delete Collaborator from Playlists
+// @access  [Admin, Artist, Regular]
+export const deleteCollaborator = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+        const { collaborator_id } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(collaborator_id)) {
+            throw new APIError(400, "Invalid Collaborator Id");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Playlist ID Is Required");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+        if (!playlist) {
+            throw new APIError(404, "Playlist Doesn't Exists")
+        }
+
+        if (user_id.toString() !== playlist.owner.toString()) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
+        }
+
+        if (!playlist.collaborator.includes(collaborator_id)) {
+            throw new APIError(400, "Collaborator Does Not Exists");
+        }
+        const index = playlist.collaborator.indexOf(collaborator_id);
+
+        playlist.collaborator.splice(index, 1);
+
+        await playlist.save();
+
+        res.status(200).json(new APIResponse(200, {}, "Collaborator Successfully Deleted"));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// @route   GET /api/v1/playlists/:id/collaborator
+// @desc    Get Collaborator from Playlists
+// @access  [Admin, Artist, Regular]
+export const getCollaborators = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const user_id = req.user?._id;
+        const playlist_id = new mongoose.Types.ObjectId(req.params.id);
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            throw new APIError(401, "Unauthorized Request, Sign In Again");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(playlist_id)) {
+            throw new APIError(400, "Playlist ID Is Required");
+        }
+
+        const playlist = await Playlist.findById(playlist_id);
+        if (!playlist) {
+            throw new APIError(404, "Playlist Doesn't Exists")
+        }
+
+        if (user_id.toString() !== playlist.owner.toString()) {
+            throw new APIError(403, "Permission Denied, You Don't Have Permission To Perform This Action");
+        }
+
+        res.status(200).json(new APIResponse(200, { collaborators: playlist.collaborator }, "Collaborator Successfully Deleted"));
     } catch (error) {
         next(error);
     }

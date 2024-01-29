@@ -7,6 +7,7 @@ interface playlistDocument extends Document {
         public_id: string
     };
     owner: Schema.Types.ObjectId;
+    collaborator: Array<Schema.Types.ObjectId>;
     tracks: Array<Schema.Types.ObjectId>;
     total_likes: number;
 }
@@ -22,13 +23,20 @@ const PlaylistSchema = new Schema<playlistDocument, Model<playlistDocument>>({
         type: {
             url: { type: String, required: true },
             public_id: { type: String, required: true }
-        }
+        },
+        required: true
     },
     owner: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true
     },
+    collaborator: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+        }
+    ],
     tracks: [
         {
             type: Schema.Types.ObjectId,
