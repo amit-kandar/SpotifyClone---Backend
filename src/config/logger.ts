@@ -45,9 +45,9 @@ const developmentLogger = () => {
             myFormat,
         ),
         transports: [
-            new transports.File({ filename: 'logger/error.log', level: 'error' }),
-            new transports.File({ filename: 'logger/warn.log', level: 'warning' }),
-            new transports.File({ filename: 'logger/info.log', level: 'info' }),
+            new transports.File({ filename: 'logs/error.log', level: 'error' }),
+            new transports.File({ filename: 'logs/warn.log', level: 'warning' }),
+            new transports.File({ filename: 'logs/info.log', level: 'info' }),
             new transports.Console(),
         ],
     });
@@ -58,13 +58,13 @@ const productionLogger = () => {
         levels: myCustomLevels.levels,
         format: combine(
             colorize({ all: true, colors: myCustomLevels.colors }),
-            timestamp({ format: "YY-MM-DD HH:mm:ss" }),
+            timestamp(),
             myFormat,
         ),
         transports: [
-            new transports.File({ filename: 'logger/error.log', level: 'error' }),
-            new transports.File({ filename: 'logger/warn.log', level: 'warning' }),
-            new transports.File({ filename: 'logger/info.log', level: 'info' }),
+            new transports.File({ filename: 'logs/error.log', level: 'error' }),
+            new transports.File({ filename: 'logs/warn.log', level: 'warning' }),
+            new transports.File({ filename: 'logs/info.log', level: 'info' }),
             new transports.Console(),
         ],
     });
