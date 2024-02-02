@@ -9,40 +9,32 @@ interface LogFormat {
     timestamp?: string;
 }
 
-const myFormat = printf((info: LogFormat) => {
+const custom_format = printf((info: LogFormat) => {
     const { level, message, timestamp } = info;
-    return `${timestamp} [${level}] ${message}`;
+    return `[${timestamp}] [${level}] ${message}`;
 });
 
-const myCustomLevels = {
+const customLevels = {
     levels: {
         error: 0,
         warn: 1,
-        info: 2,
-        http: 3,
-        verbose: 4,
-        debug: 5,
-        silly: 6
+        info: 2
     },
     colors: {
         error: 'red',
         warn: 'yellow',
-        info: 'blue',
-        http: 'green',
-        verbose: 'cyan',
-        debug: 'magenta',
-        silly: 'white'
+        info: 'blue'
     }
 };
 
 
 const developmentLogger = () => {
     return createLogger({
-        levels: myCustomLevels.levels,
+        levels: customLevels.levels,
         format: combine(
-            colorize({ all: true, colors: myCustomLevels.colors }),
-            timestamp({ format: "YY-MM-DD HH:mm:ss" }),
-            myFormat,
+            colorize({ all: true, colors: customLevels.colors }),
+            timestamp({ format: "YY-MM-DD HH:MM:SS" }),
+            custom_format,
         ),
         transports: [
             new transports.File({ filename: 'logs/error.log', level: 'error' }),
@@ -55,11 +47,11 @@ const developmentLogger = () => {
 
 const productionLogger = () => {
     return createLogger({
-        levels: myCustomLevels.levels,
+        levels: customLevels.levels,
         format: combine(
-            colorize({ all: true, colors: myCustomLevels.colors }),
+            colorize({ all: true, colors: customLevels.colors }),
             timestamp(),
-            myFormat,
+            custom_format,
         ),
         transports: [
             new transports.File({ filename: 'logs/error.log', level: 'error' }),
@@ -72,7 +64,7 @@ const productionLogger = () => {
 
 let logger: Logger = developmentLogger();
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'production') {
     logger = productionLogger();
 }
 
