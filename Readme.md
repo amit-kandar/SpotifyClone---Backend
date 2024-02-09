@@ -8,66 +8,66 @@ The Spotify Clone Backend is built using Node.js and Express, providing a RESTfu
 
 ## Features
 
-- **User Authentication**: Supports user registration, login, and authentication using secure mechanisms (e.g., JWT).
+-   **User Authentication**: Supports user registration, login, and authentication using secure mechanisms (e.g., JWT).
 
-- **Music Streaming**: Provides endpoints to stream, play, and manage music tracks. Supports features such as play, pause, skip, shuffle, and repeat.
+-   **Music Streaming**: Provides endpoints to stream, play, and manage music tracks. Supports features such as play, pause, skip, shuffle, and repeat.
 
-- **Playlists and Library Management**: Enables users to create, manage, and organize playlists, add songs to their library, and customize playlists according to their preferences.
+-   **Playlists and Library Management**: Enables users to create, manage, and organize playlists, add songs to their library, and customize playlists according to their preferences.
 
-- **Search and Discovery**: Allows users to search for songs, albums, artists, and discover new music based on genres, recommendations, or user preferences.
+-   **Search and Discovery**: Allows users to search for songs, albums, artists, and discover new music based on genres, recommendations, or user preferences.
 
-- **Social Features**: Incorporates social functionalities such as following other users, sharing playlists, and collaborating on playlists with friends.
+-   **Social Features**: Incorporates social functionalities such as following other users, sharing playlists, and collaborating on playlists with friends.
 
 ## Tech Stack
 
-- **Node.js**: Backend server environment.
-- **Express**: Web application framework for Node.js, used to build RESTful APIs.
-- **MongoDB**: NoSQL database to store user data and playlist information.
-- **JWT (JSON Web Tokens)**: Used for user authentication and authorization.
+-   **Node.js**: Backend server environment.
+-   **Express**: Web application framework for Node.js, used to build RESTful APIs.
+-   **MongoDB**: NoSQL database to store user data and playlist information.
+-   **JWT (JSON Web Tokens)**: Used for user authentication and authorization.
 
 ## Getting Started
 
 1. Clone the repository:
 
-   ```bash
-   git clone https://github.com/amit-kandar/SpotifyClone-Backend
-   ```
+    ```bash
+    git clone https://github.com/amit-kandar/SpotifyClone-Backend
+    ```
 
 2. Navigate to the project directory:
-   ```bash
-   cd SpotifyBackend
-   ```
+    ```bash
+    cd SpotifyBackend
+    ```
 3. Install dependencies:
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
-   Or if you prefer Yarn:
+    Or if you prefer Yarn:
 
-   ```bash
-   yarn add
-   ```
+    ```bash
+    yarn add
+    ```
 
 4. Start the development server:
-   ```bash
-   npm start dev
-   ```
-   Or with Yarn:
-   ```bash
-   yarn start dev
-   ```
+    ```bash
+    npm start
+    ```
+    Or with Yarn:
+    ```bash
+    yarn start
+    ```
 5. Open your web browser and visit http://localhost:8080.
 
 ## Contributing
 
 Contributions are welcome! If you'd like to contribute to this project, please follow these guidelines:
 
-- Fork the repository.
-- Create a new branch for your feature or bug fix.
-- Commit your changes.
-- Push your changes to your fork.
-- Create a pull request.
+-   Fork the repository.
+-   Create a new branch for your feature or bug fix.
+-   Commit your changes.
+-   Push your changes to your fork.
+-   Create a pull request.
 
 ## License
 
