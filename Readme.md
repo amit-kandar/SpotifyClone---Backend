@@ -59,12 +59,6 @@ The Spotify Clone Backend is built using Node.js and Express, providing a RESTfu
    ```
 5. Open your web browser and visit http://localhost:8080.
 
-## Configuration
-
-- **Environment Variables**: Set up environment variables. Copy the config.example.js file and rename it to config.js. Adjust the configurations (e.g., database connection string, JWT secret) as per your environment.
-
-- **Database Setup**: Ensure your chosen database (e.g., MongoDB) is running. Update database credentials and configurations in the config.js file.
-
 ## Contributing
 
 Contributions are welcome! If you'd like to contribute to this project, please follow these guidelines:
